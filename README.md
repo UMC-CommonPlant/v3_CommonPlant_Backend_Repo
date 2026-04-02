@@ -100,7 +100,7 @@
 
 ```bash
 # 레포지토리 클론
-git clone https://github.com/your-repo/common-plant-backend.git
+git clone https://github.com/UMC-CommonPlant/v3_CommonPlant_Backend_Repo.git
 
 # 설정 파일 작성 (application.yml 설정 필요)
 cd common-plant-backend/src/main/resources
