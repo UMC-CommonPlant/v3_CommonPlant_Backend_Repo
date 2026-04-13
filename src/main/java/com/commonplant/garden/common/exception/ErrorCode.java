@@ -1,0 +1,13 @@
+package com.order.poteto.common.exception;
+
+
+/**
+ * 모든 도메인의 ErrorCode enum이 구현해야 하는 Interface
+ * - 기존 단일 enum 대신 interface를 정의
+ * - 각 도메인이 독립적으로 ErrorCode를 관리 가능
+ */
+public interface ErrorCode {
+    String getCode();
+    String getMessage();
+    int getStatus();
+}
