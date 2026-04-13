@@ -11,4 +11,12 @@ public interface ErrorCode {
     String getCode();
     String getMessage();
     HttpStatus getStatus();
+
+    default boolean is4xxError() {
+        return getStatus().is4xxClientError();
+    }
+
+    default boolean is5xxError() {
+        return getStatus().is5xxServerError();
+    }
 }
