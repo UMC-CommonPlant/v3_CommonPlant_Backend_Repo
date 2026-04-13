@@ -4,7 +4,7 @@
 
 ---
 
-## 1. 설계 목표
+## 설계 목표
 
 | 목표 | 설명 |
 |---|---|
@@ -14,178 +14,127 @@
 | **확장성** | `ErrorCode` 인터페이스를 구현하기만 하면 어느 Enum이든 동일하게 처리 |
 
 ---
-
-## 2. 전체 구조
+## 구조
 
 ```
-com.example.sns/
-│
-├── common/exception/
+common/
+├── exception/
 │   ├── ErrorCode.java              # 인터페이스 (공통 계약)
-│   ├── CommonErrorCode.java        # 공통 에러 코드 Enum (C001~)
+│   ├── CommonErrorCode.java        # 공통 에러 코드 (C001~)
 │   ├── BusinessException.java      # 커스텀 예외
-│   ├── ErrorResponse.java          # 클라이언트 응답 형식
+│   ├── ErrorResponse.java          # 에러 응답 형식
 │   └── GlobalExceptionHandler.java # 전역 예외 핸들러
-└── domain/
-    ├── auth/exception/
-    │   └── AuthErrorCode.java      # 인증 에러 코드 Enum (A001~)
-    ├── user/exception/
-    │   └── UserErrorCode.java      # 사용자 에러 코드 Enum (U001~)
-    ├── post/exception/
-    │   └── PostErrorCode.java      # 게시글 에러 코드 Enum (P001~)
-    └── comment/exception/
-        └── CommentErrorCode.java   # 댓글 에러 코드 Enum (CM001~)
+└── filter/
+    └── MdcLoggingFilter.java       # 요청 추적 필터
+
+domain/
+└── {도메인}/exception/
+    └── {도메인}ErrorCode.java      # 도메인별 에러 코드
 ```
 
-### 에러 코드 파일 소유권
-각 담당자는 **자신의 도메인 파일만 수정**합니다. 충돌이 나는 구간이 완전히 분리됩니다.
-
-| 파일 | 담당 |
-|---|---|
-| `CommonErrorCode.java` | 공통 담당자 |
-| `AuthErrorCode.java` | 인증 담당자 |
-| `UserErrorCode.java` | 유저 도메인 담당자 |
-| `PostErrorCode.java` | 게시글 도메인 담당자 |
-| `CommentErrorCode.java` | 댓글 도메인 담당자 |
-
 ---
-## 3. ErrorCode 인터페이스
-모든 도메인 에러 코드 Enum이 구현하는 **공통 계약**입니다.
-`BusinessException`은 이 인터페이스 타입을 받으므로 어느 도메인 Enum을 넣어도 동일하게 동작합니다.
-```java
-// common/exception/ErrorCode.java
-public interface ErrorCode {
-    HttpStatus getStatus();
-    String getCode();
-    String getMessage();
+
+## 요청 흐름
+
+```
+요청 → MdcLoggingFilter (traceId 부여)
+     → Controller / Service
+     → 예외 발생 시 GlobalExceptionHandler
+     → ErrorResponse 반환
+```
+
+```json
+// 에러 응답 예시
+{
+  "traceId": "a1b2c3d4e5f6g7h8",
+  "status": 404,
+  "code": "U001",
+  "message": "사용자를 찾을 수 없습니다.",
+  "timestamp": "2024-04-13T10:30:00"
 }
 ```
 
 ---
-## 4. 도메인별 ErrorCode Enum
-각 도메인 패키지 안에 독립적인 Enum을 두고 `ErrorCode` 인터페이스를 구현합니다.
 
-```java
-// common/exception/CommonErrorCode.java
-@Getter
-@RequiredArgsConstructor
-public enum CommonErrorCode implements ErrorCode {
+## 사용 방법
 
-    INVALID_INPUT_VALUE(HttpStatus.BAD_REQUEST,             "C001", "잘못된 입력 값입니다."),
-    METHOD_NOT_ALLOWED(HttpStatus.METHOD_NOT_ALLOWED,       "C002", "허용되지 않는 HTTP 메서드입니다."),
-    ENTITY_NOT_FOUND(HttpStatus.NOT_FOUND,                  "C003", "엔티티를 찾을 수 없습니다."),
-    INTERNAL_SERVER_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "C004", "서버 내부 오류입니다."),
-    INVALID_TYPE_VALUE(HttpStatus.BAD_REQUEST,              "C005", "잘못된 타입입니다."),
-    ACCESS_DENIED(HttpStatus.FORBIDDEN,                     "C006", "접근 권한이 없습니다.");
+### 1. 도메인 ErrorCode 추가
 
-    private final HttpStatus status;
-    private final String code;
-    private final String message;
-}
-```
+각 도메인 담당자는 **자신의 파일만 수정**합니다.
 
-### ex) UserErrorCode
 ```java
 // domain/user/exception/UserErrorCode.java
 @Getter
 @RequiredArgsConstructor
 public enum UserErrorCode implements ErrorCode {
 
-    USER_NOT_FOUND(HttpStatus.NOT_FOUND,           "U001", "사용자를 찾을 수 없습니다."),
-    DUPLICATE_EMAIL(HttpStatus.CONFLICT,           "U002", "이미 사용 중인 이메일입니다."),
-    DUPLICATE_NICKNAME(HttpStatus.CONFLICT,        "U003", "이미 사용 중인 닉네임입니다."),
-    SELF_FOLLOW_NOT_ALLOWED(HttpStatus.BAD_REQUEST,"U004", "자기 자신을 팔로우할 수 없습니다."),
-    ALREADY_FOLLOWING(HttpStatus.CONFLICT,         "U005", "이미 팔로우한 사용자입니다."),
-    FOLLOW_NOT_FOUND(HttpStatus.NOT_FOUND,         "U006", "팔로우 관계를 찾을 수 없습니다.");
+    USER_NOT_FOUND(HttpStatus.NOT_FOUND,     "U001", "사용자를 찾을 수 없습니다."),
+    DUPLICATE_EMAIL(HttpStatus.CONFLICT,     "U002", "이미 사용 중인 이메일입니다."),
+    DUPLICATE_NICKNAME(HttpStatus.CONFLICT,  "U003", "이미 사용 중인 닉네임입니다.");
 
     private final HttpStatus status;
     private final String code;
     private final String message;
 }
 ```
----
 
-## 5. 사용 방법 (Service / Controller)
-
-각 Service는 **자신의 도메인 ErrorCode만** import합니다.
+### 2. Service에서 예외 던지기
 
 ```java
-// PostService.java
-import com.example.sns.domain.post.exception.PostErrorCode;
-
-public Post findPost(Long postId) {
-    return postRepository.findById(postId)
-            .orElseThrow(() -> new BusinessException(PostErrorCode.POST_NOT_FOUND));
-}
-
-public void deletePost(Long postId, Long userId) {
-    Post post = findPost(postId);
-    if (!post.isAuthor(userId)) {
-        throw new BusinessException(PostErrorCode.POST_AUTHOR_MISMATCH);
-    }
-    postRepository.delete(post);
-}
-```
-
-```java
-// UserService.java
-import com.example.sns.domain.user.exception.UserErrorCode;
-
-public void followUser(Long followerId, Long followeeId) {
-    if (followerId.equals(followeeId)) {
-        throw new BusinessException(UserErrorCode.SELF_FOLLOW_NOT_ALLOWED);
-    }
-    // ...
-}
-
-public void validateNickname(String nickname) {
-    if (userRepository.existsByNickname(nickname)) {
-        throw new BusinessException(
-            UserErrorCode.DUPLICATE_NICKNAME,
-            String.format("'%s'은(는) 이미 사용 중인 닉네임입니다.", nickname)
-        );
-    }
-}
-```
-
-### ❌ 피해야 할 패턴
-
-```java
-// ❌ 다른 도메인의 에러 코드를 가져다 쓰기
-// PostService에서 UserErrorCode를 사용하지 마세요
+// 기본 사용
 throw new BusinessException(UserErrorCode.USER_NOT_FOUND);
 
-// ❌ 에러 코드 없이 RuntimeException 직접 사용
-throw new RuntimeException("게시글을 찾을 수 없습니다.");
+// 동적 메시지가 필요한 경우
+throw new BusinessException(UserErrorCode.DUPLICATE_NICKNAME,
+        String.format("'%s'은(는) 이미 사용 중입니다.", nickname));
+```
+
+### 3. 하지 말아야 할 것
+
+```java
+// 다른 도메인 ErrorCode 사용 금지
+throw new BusinessException(PostErrorCode.POST_NOT_FOUND); // UserService에서 사용 금지
+
+// RuntimeException 직접 사용 금지
+throw new RuntimeException("사용자를 찾을 수 없습니다.");
 ```
 
 ---
 
-## 6. 에러 코드 명명 규칙
+## 에러 코드 담당자
 
-```
-{도메인 접두사}_{동사/형용사}_{명사}
+| 파일 | 접두사 | 담당 |
+|---|---|---|
+| `CommonErrorCode` | C | 공통 |
+| `UserErrorCode` | U | 유저 |
+| `PostErrorCode` | P | 게시글 |
+| `CommentErrorCode` | CM | 댓글 |
 
-예시:
-  USER_NOT_FOUND         → 사용자 없음
-  DUPLICATE_NICKNAME     → 닉네임 중복
-  POST_AUTHOR_MISMATCH   → 작성자 불일치
-  INVALID_TOKEN          → 유효하지 않은 토큰
-  IMAGE_SIZE_EXCEEDED    → 이미지 크기 초과
-```
+---
 
-### 네이밍 패턴
+## 에러 코드 명명 규칙
 
 | 상황 | 패턴 | 예시 |
 |---|---|---|
-| 리소스를 찾을 수 없음 | `{DOMAIN}_NOT_FOUND` | `USER_NOT_FOUND` |
-| 중복 | `DUPLICATE_{FIELD}` | `DUPLICATE_NICKNAME` |
-| 권한 없음 | `{DOMAIN}_AUTHOR_MISMATCH` | `POST_AUTHOR_MISMATCH` |
+| 리소스 없음 | `{DOMAIN}_NOT_FOUND` | `USER_NOT_FOUND` |
+| 중복 | `DUPLICATE_{FIELD}` | `DUPLICATE_EMAIL` |
+| 권한 없음 | `{DOMAIN}_UNAUTHORIZED` | `POST_UNAUTHORIZED` |
 | 이미 존재 | `ALREADY_{ACTION}` | `ALREADY_LIKED` |
 | 유효하지 않음 | `INVALID_{FIELD}` | `INVALID_TOKEN` |
 | 초과 | `{FIELD}_EXCEEDED` | `IMAGE_SIZE_EXCEEDED` |
 
 ---
 
-> `GlobalExceptionHandler`와 `BusinessException`은 **수정이 필요 없습니다.**  
+## traceId
+
+모든 요청에는 고유한 `traceId`가 부여됩니다.
+클라이언트가 에러를 신고할 때 `traceId`를 제공하면 서버 로그에서 해당 요청을 즉시 추적할 수 있습니다.
+
+```bash
+grep "a1b2c3d4e5f6g7h8" application.log
+```
+
+---
+
+> `GlobalExceptionHandler`, `BusinessException`, `MdcLoggingFilter`는 수정하지 않습니다.
 > `ErrorCode` 인터페이스를 구현한 Enum이라면 자동으로 처리됩니다.
