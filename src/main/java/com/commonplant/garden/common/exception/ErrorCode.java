@@ -1,5 +1,6 @@
-package com.order.poteto.common.exception;
+package com.commonplant.garden.common.exception;
 
+import org.springframework.http.HttpStatus;
 
 /**
  * 모든 도메인의 ErrorCode enum이 구현해야 하는 Interface
@@ -9,5 +10,5 @@ package com.order.poteto.common.exception;
 public interface ErrorCode {
     String getCode();
     String getMessage();
-    int getStatus();
+    HttpStatus getStatus();
 }

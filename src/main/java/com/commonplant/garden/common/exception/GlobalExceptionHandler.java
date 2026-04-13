@@ -1,6 +1,5 @@
-package com.order.poteto.common.exception;
+package com.commonplant.garden.common.exception;
 
-import com.order.poteto.common.exception.dto.BusinessException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.BindException;
@@ -88,16 +87,12 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(BusinessException.class)
     protected ResponseEntity<ErrorResponse> handleBusinessException(BusinessException e) {
-        log.error("BusinessException [{}]: {}", e.getClass().getSimpleName(), e.getMessage());
+        log.error("BusinessException [{}]: {}", e.getClass().getSimpleName(), e.getMessage(), e.getCause());
         ErrorCode errorCode = e.getErrorCode();
 
         return ResponseEntity
                 .status(errorCode.getStatus())
-                .body(ErrorResponse.builder()
-                        .code(errorCode.getCode())
-                        .message(e.getMessage())
-                        .status(errorCode.getStatus())
-                        .build());
+                .body(ErrorResponse.of(errorCode, e.getMessage()));
     }
 
     /**

@@ -1,8 +1,10 @@
-package com.order.poteto.common.exception;
+package com.commonplant.garden.common.exception;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.Builder;
 import lombok.Getter;
+import org.springframework.http.HttpStatus;
 import org.springframework.validation.BindingResult;
 
 import java.time.LocalDateTime;
@@ -13,18 +15,18 @@ import java.util.stream.Collectors;
 @Getter
 @JsonInclude(JsonInclude.Include.NON_EMPTY)
 public class ErrorResponse {
-
     private final String code;
     private final String message;
     private final int status;
+    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd' 'HH:mm:ss")
     private final LocalDateTime timestamp;
     private final List<FieldError> errors;
 
     @Builder
-    private ErrorResponse(String code, String message, int status, List<FieldError> errors) {
+    private ErrorResponse(String code, String message, HttpStatus status, List<FieldError> errors) {
         this.code = code;
         this.message = message;
-        this.status = status;
+        this.status = status.value();
         this.timestamp = LocalDateTime.now();
         this.errors = errors != null ? errors : Collections.emptyList();
     }
