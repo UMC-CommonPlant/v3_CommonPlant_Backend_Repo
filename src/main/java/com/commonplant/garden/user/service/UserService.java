@@ -13,8 +13,5 @@ import static com.commonplant.garden.user.exception.UserErrorCode.*;
 public class UserService {
     private final UserRepository userRepository;
 
-    public User getUserById(Long id){ // User 조회
-        return userRepository.findById(id).orElseThrow(() -> new BusinessException(NOT_FOUND_USER) {
-        });
-    }
+
 }

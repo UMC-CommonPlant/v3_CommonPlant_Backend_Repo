@@ -47,4 +47,16 @@ public class User extends BaseTime {
     @Column(name = "introduction", nullable = true)
     private String introduction;
 
+    // 소셜 로그인 신규 유저 생성
+    @Builder
+    public User(String uuid, String name, String email,
+                Provider provider, String providerId, String imgUrl) {
+        this.uuid = uuid;
+        this.name = name;
+        this.email = email;
+        this.provider = provider;
+        this.providerId = providerId;
+        this.imgUrl = imgUrl;
+        this.status = UserStatus.ACTIVE;
+    }
 }
