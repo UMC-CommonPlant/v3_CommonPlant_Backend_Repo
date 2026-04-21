@@ -1,6 +1,8 @@
 package com.commonplant.garden.user.entity;
 
 import com.commonplant.garden.common.domain.BaseTime;
+import com.commonplant.garden.user.enums.Provider;
+import com.commonplant.garden.user.enums.UserStatus;
 import jakarta.persistence.*;
 import lombok.*;
 import lombok.Getter;
@@ -16,23 +18,25 @@ public class User extends BaseTime {
     @Column(name = "user_idx")
     private Long userIdx;
 
-    @Column(name = "uuid", nullable = false)
+    @Column(name = "uuid", nullable = false, unique = true)
     private String uuid;
 
     @Column(name = "name", nullable = false)
     private String name;
 
-    @Column(name = "email", nullable = false)
+    @Column(name = "email", nullable = false, unique = true)
     private String email;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "status")
-    private String status;
+    private UserStatus status;
 
     @Column(name = "refresh_token")
     private String refreshToken;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "provider")
-    private String provider;
+    private Provider provider;
 
     @Column(name = "provider_id")
     private String providerId;
@@ -43,12 +47,4 @@ public class User extends BaseTime {
     @Column(name = "introduction", nullable = true)
     private String introduction;
 
-    @Builder
-    public User(String name, String email, String provider, String imgUrl, String uuid){
-        this.name = name;
-        this.email = email;
-        this.provider = provider;
-        this.imgUrl = imgUrl;
-        this.uuid = uuid;
-    }
 }
