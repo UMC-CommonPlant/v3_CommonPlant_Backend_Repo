@@ -25,6 +25,9 @@ dependencies {
     compileOnly 'org.projectlombok:lombok'
 	annotationProcessor 'org.projectlombok:lombok'
 
+    // nanoId
+    implementation 'com.aventrix.jnanoid:jnanoid:2.0.0'
+
     // Database
     // runtimeOnly 'com.h2database:h2'
     runtimeOnly 'org.postgresql:postgresql'
