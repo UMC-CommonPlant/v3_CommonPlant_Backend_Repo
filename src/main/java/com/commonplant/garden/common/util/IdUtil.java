@@ -1,37 +1,38 @@
 package com.commonplant.garden.common.util;
 
+import com.aventrix.jnanoid.jnanoid.NanoIdUtils;
+
 import java.util.UUID;
 
-public class UUIDUtil {
+public class IdUtil {
 
-    private UUIDUtil() {}
+    private IdUtil() {}
 
-    /**
-     * 하이픈 없는 랜덤 UUID 생성 (32자)
-     * 신규 유저 생성 시 uuid 필드에 사용
-     *
-     * @return "a1b2c3d4e5f6..." 형태의 32자 문자열
+    /*
+     * NanoID
      */
+    public static String generateNanoId() {
+        return NanoIdUtils.randomNanoId(
+                NanoIdUtils.DEFAULT_NUMBER_GENERATOR,
+                NanoIdUtils.DEFAULT_ALPHABET,
+                12
+        );
+    }
+
+    /*
+     * UUID
+     */
+    // 하이픈 없는 랜덤 UUID 생성 (32자)
     public static String generateUuid() {
         return UUID.randomUUID().toString().replace("-", "");
     }
 
-    /**
-     * 표준 하이픈 포함 UUID 생성 (36자)
-     *
-     * @return "a1b2c3d4-e5f6-..." 형태의 36자 문자열
-     */
+    // 표준 하이픈 포함 UUID 생성 (36자)
     public static String generateUuidWithHyphen() {
         return UUID.randomUUID().toString();
     }
 
-    /**
-     * 문자열이 유효한 UUID 형식인지 검증
-     * 하이픈 포함(36자) / 미포함(32자) 모두 허용
-     *
-     * @param value 검증할 문자열
-     * @return 유효한 UUID 형식이면 true
-     */
+    // 문자열이 유효한 UUID 형식인지 검증
     public static boolean isValid(String value) {
         if (value == null) {
             return false;
