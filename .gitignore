@@ -15,5 +15,6 @@ out/
 !**/src/test/**/out/
 
 ### Project ###
-src/main/resources/application.yaml
+#src/main/resources/*.yaml
 gradle/**
+postgres_data/**

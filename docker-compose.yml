@@ -1,0 +1,14 @@
+services:
+  db:
+    image: postgres:15
+    container_name: common-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: commondb
+      POSTGRES_USER: commonuser
+      POSTGRES_PASSWORD: commonpass
+      TZ: Asia/Seoul
+    volumes:
+      - ./postgres_data:/var/lib/postgresql/data
+    restart: always

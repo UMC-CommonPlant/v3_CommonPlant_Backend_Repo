@@ -1,0 +1,9 @@
+spring:
+  application:
+    name: garden
+  profiles:
+    active: local # 기본값을 local로 설정
+
+server:
+  servlet:
+    context-path: /api/v1
