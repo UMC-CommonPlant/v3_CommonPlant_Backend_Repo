@@ -1,0 +1,14 @@
+# [prod] 프로필: AWS RDS(PostgreSQL) 사용
+spring:
+  config:
+    activate:
+      on-profile: prod
+  datasource:
+    url: jdbc:postgresql://${RDS_HOSTNAME}:${RDS_PORT:5432}/${RDS_DB_NAME}
+    driver-class-name: org.postgresql.Driver
+    username: ${RDS_USERNAME}
+    password: ${RDS_PASSWORD}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false

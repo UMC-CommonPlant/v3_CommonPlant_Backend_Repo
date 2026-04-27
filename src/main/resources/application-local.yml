@@ -1,0 +1,17 @@
+# [local] 프로필: Docker PostgreSQL 사용
+spring:
+  config:
+    activate:
+      on-profile: local
+  datasource:
+    url: jdbc:postgresql://localhost:5432/commondb
+    driver-class-name: org.postgresql.Driver
+    username: sa
+    password: password
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
