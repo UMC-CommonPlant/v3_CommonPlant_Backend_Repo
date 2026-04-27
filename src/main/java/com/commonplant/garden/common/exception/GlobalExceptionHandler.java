@@ -3,8 +3,8 @@ package com.commonplant.garden.common.exception;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.AccessDeniedException;
-import org.springframework.security.core.AuthenticationException;
+//import org.springframework.security.access.AccessDeniedException;
+//import org.springframework.security.core.AuthenticationException;
 import org.springframework.validation.BindException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -86,6 +86,7 @@ public class GlobalExceptionHandler {
     /**
      * 401 - 인증 실패 (Spring Security)
      */
+    /*
     @ExceptionHandler(AuthenticationException.class)
     protected ResponseEntity<ErrorResponse> handleAuthenticationException(
             AuthenticationException e, HttpServletRequest request) {
@@ -98,10 +99,12 @@ public class GlobalExceptionHandler {
                 .status(errorCode.getStatus())
                 .body(ErrorResponse.of(errorCode));
     }
+     */
 
     /**
      * 403 - 인가 실패 (Spring Security)
      */
+    /*
     @ExceptionHandler(AccessDeniedException.class)
     protected ResponseEntity<ErrorResponse> handleAccessDeniedException(
             AccessDeniedException e, HttpServletRequest request) {
@@ -114,6 +117,7 @@ public class GlobalExceptionHandler {
                 .status(errorCode.getStatus())
                 .body(ErrorResponse.of(errorCode));
     }
+    */
 
     /**
      * 404 - 핸들러 없음
