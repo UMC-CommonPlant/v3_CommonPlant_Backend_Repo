@@ -59,4 +59,14 @@ public class User extends BaseTime {
         this.imgUrl = imgUrl;
         this.status = UserStatus.ACTIVE;
     }
+
+    public void updateProfile(String name, String introduction, String imgUrl) {
+        if (name != null) this.name = name;
+        if (introduction != null) this.introduction = introduction;
+        if (imgUrl != null) this.imgUrl = imgUrl;
+    }
+
+    public void deactivate() {
+        this.status = UserStatus.DELETED;
+    }
 }

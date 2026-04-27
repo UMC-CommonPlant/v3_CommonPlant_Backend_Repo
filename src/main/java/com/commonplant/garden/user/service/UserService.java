@@ -1,17 +1,21 @@
 package com.commonplant.garden.user.service;
 
-import com.commonplant.garden.common.exception.BusinessException;
-import com.commonplant.garden.user.entity.User;
-import com.commonplant.garden.user.entity.UserRepository;
-import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
+import com.commonplant.garden.user.dto.UserRequest;
+import com.commonplant.garden.user.dto.UserResponse;
 
-import static com.commonplant.garden.user.exception.UserErrorCode.*;
+import java.util.List;
 
-@RequiredArgsConstructor
-@Service
-public class UserService {
-    private final UserRepository userRepository;
+public interface UserService {
 
+    List<UserResponse> getAllUsers();
 
+    UserResponse getUserByIdx(Long userIdx);
+
+    UserResponse getUserByUuid(String uuid);
+
+    UserResponse createUser(UserRequest.CreateRequest request);
+
+    UserResponse updateUser(Long userIdx, UserRequest.UpdateRequest request);
+
+    void deleteUser(Long userIdx);
 }
