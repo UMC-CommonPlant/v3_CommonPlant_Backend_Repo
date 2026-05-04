@@ -5,14 +5,17 @@ import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 
-/**
- * 공통 에러 클래스 (도메인 별 Enum 분리)
- */
-
 @Getter
 @RequiredArgsConstructor
 public enum UserErrorCode implements ErrorCode {
-    NOT_FOUND_USER(HttpStatus.NOT_FOUND, "U001", "잘못된 입력 값입니다."),
+
+    // entity error code
+    PROVIDER_NOT_FOUND(HttpStatus.NOT_FOUND, "U001", "지원하지 않는 소셜 로그인 Provider입니다"),
+
+    // validation error code
+    USER_NOT_FOUND(HttpStatus.NOT_FOUND, "U101", "사용자를 찾을 수 없습니다."),
+    DUPLICATE_EMAIL(HttpStatus.CONFLICT, "U102", "이미 사용 중인 이메일입니다."),
+    DUPLICATE_PROVIDER(HttpStatus.CONFLICT, "U103", "이미 가입된 소셜 계정입니다.")
     ;
 
     private final HttpStatus status;
