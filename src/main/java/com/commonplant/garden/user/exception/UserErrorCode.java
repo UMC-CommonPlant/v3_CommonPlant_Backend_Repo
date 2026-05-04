@@ -10,7 +10,7 @@ import org.springframework.http.HttpStatus;
 public enum UserErrorCode implements ErrorCode {
 
     // entity error code
-    PROVIDER_NOT_FOUND(HttpStatus.NOT_FOUND, "U001", "지원하지 않는 소셜 로그인 Provider입니다"),
+    PROVIDER_NOT_FOUND(HttpStatus.BAD_REQUEST, "U001", "지원하지 않는 소셜 로그인 Provider입니다"),
 
     // validation error code
     USER_NOT_FOUND(HttpStatus.NOT_FOUND, "U101", "사용자를 찾을 수 없습니다."),
