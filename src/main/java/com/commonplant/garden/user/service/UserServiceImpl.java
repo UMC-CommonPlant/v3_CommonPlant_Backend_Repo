@@ -59,9 +59,9 @@ public class UserServiceImpl implements UserService {
         findActiveUserByNanoId(nanoId).deactivate();
     }
 
-    // ── private helper ──────────────────────────────────────────────────────
+    // ── helper ──────────────────────────────────────────────────────
 
-    private User findActiveUserByNanoId(String nanoId) {
+    public User findActiveUserByNanoId(String nanoId) {
         return userRepository.findByNanoIdAndStatus(nanoId, UserStatus.ACTIVE)
                 .orElseThrow(() -> new BusinessException(UserErrorCode.USER_NOT_FOUND));
     }
