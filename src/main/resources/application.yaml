@@ -16,3 +16,7 @@ jwt:
 social:
   google:
     token-info-url: https://oauth2.googleapis.com/tokeninfo
+
+s3:
+  bucket: ${S3_BUCKET_NAME}
+  presigned-url-expiration-minutes: 10

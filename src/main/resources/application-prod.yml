@@ -12,3 +12,7 @@ spring:
     hibernate:
       ddl-auto: validate
     show-sql: false
+
+s3:
+  bucket: ${S3_BUCKET_NAME}
+  presigned-url-expiration-minutes: 10
