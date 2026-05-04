@@ -6,8 +6,8 @@ spring:
   datasource:
     url: jdbc:postgresql://localhost:5432/commondb
     driver-class-name: org.postgresql.Driver
-    username: sa
-    password: password
+    username: commonuser
+    password: commonpass
   jpa:
     hibernate:
       ddl-auto: update
