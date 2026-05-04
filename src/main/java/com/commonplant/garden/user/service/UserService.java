@@ -3,19 +3,13 @@ package com.commonplant.garden.user.service;
 import com.commonplant.garden.user.dto.UserRequest;
 import com.commonplant.garden.user.dto.UserResponse;
 
-import java.util.List;
-
 public interface UserService {
 
-    List<UserResponse> getAllUsers();
-
-    UserResponse getUserByIdx(Long userIdx);
-
-    UserResponse getUserByUuid(String uuid);
+    UserResponse getUserByNanoId(String nanoId);
 
     UserResponse createUser(UserRequest.CreateRequest request);
 
-    UserResponse updateUser(Long userIdx, UserRequest.UpdateRequest request);
+    UserResponse updateUser(String nanoId, UserRequest.UpdateRequest request);
 
-    void deleteUser(Long userIdx);
+    void deleteUser(String username);
 }

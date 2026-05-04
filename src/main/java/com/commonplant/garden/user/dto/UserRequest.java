@@ -12,7 +12,6 @@ public class UserRequest {
     @Getter
     @NoArgsConstructor
     public static class CreateRequest {
-
         @NotBlank
         private String name;
 
@@ -26,13 +25,14 @@ public class UserRequest {
         @NotBlank
         private String providerId;
 
+        private String introduction;
+
         private String imgUrl;
     }
 
     @Getter
     @NoArgsConstructor
     public static class UpdateRequest {
-
         private String name;
         private String introduction;
         private String imgUrl;

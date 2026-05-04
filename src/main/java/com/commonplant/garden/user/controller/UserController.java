@@ -1,5 +1,6 @@
 package com.commonplant.garden.user.controller;
 
+import com.commonplant.garden.common.dto.JsonResponse;
 import com.commonplant.garden.user.dto.UserRequest;
 import com.commonplant.garden.user.dto.UserResponse;
 import com.commonplant.garden.user.service.UserService;
@@ -9,8 +10,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
-
 @RequiredArgsConstructor
 @RestController
 @RequestMapping("/users")
@@ -18,31 +17,28 @@ public class UserController {
 
     private final UserService userService;
 
-    @GetMapping
-    public ResponseEntity<List<UserResponse>> getAllUsers() {
-        return ResponseEntity.ok(userService.getAllUsers());
-    }
-
-    @GetMapping("/{userIdx}")
-    public ResponseEntity<UserResponse> getUserByIdx(@PathVariable Long userIdx) {
-        return ResponseEntity.ok(userService.getUserByIdx(userIdx));
+    @GetMapping("/{id}")
+    public ResponseEntity<JsonResponse> getUserByNanoId(@PathVariable String id) {
+        UserResponse response = userService.getUserByNanoId(id);
+        return ResponseEntity.ok(new JsonResponse(true, 200, "getUserByNanoId", response));
     }
 
     @PostMapping
-    public ResponseEntity<UserResponse> createUser(@Valid @RequestBody UserRequest.CreateRequest request) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(userService.createUser(request));
+    public ResponseEntity<JsonResponse> createUser(@Valid @RequestBody UserRequest.CreateRequest request) {
+        UserResponse response = userService.createUser(request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(new JsonResponse(true, 200, "createUser", response));
     }
 
-    @PutMapping("/{userIdx}")
-    public ResponseEntity<UserResponse> updateUser(
-            @PathVariable Long userIdx,
-            @RequestBody UserRequest.UpdateRequest request) {
-        return ResponseEntity.ok(userService.updateUser(userIdx, request));
+    @PutMapping("/{id}")
+    public ResponseEntity<JsonResponse> updateUser(
+            @PathVariable String id, @RequestBody UserRequest.UpdateRequest request) {
+        UserResponse response = userService.updateUser(id, request);
+        return ResponseEntity.ok(new JsonResponse(true, 200, "updateUser", response));
     }
 
-    @DeleteMapping("/{userIdx}")
-    public ResponseEntity<Void> deleteUser(@PathVariable Long userIdx) {
-        userService.deleteUser(userIdx);
-        return ResponseEntity.noContent().build();
+    @DeleteMapping("/{id}")
+    public ResponseEntity<JsonResponse> deleteUser(@PathVariable String id) {
+        userService.deleteUser(id);
+        return ResponseEntity.ok(new JsonResponse(true, 200, "deleteUser", null));
     }
 }

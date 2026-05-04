@@ -1,4 +1,4 @@
-package com.umc.commonplant.global.dto;
+package com.commonplant.garden.common.dto;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
