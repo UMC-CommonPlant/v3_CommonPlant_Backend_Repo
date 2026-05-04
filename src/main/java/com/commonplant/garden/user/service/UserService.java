@@ -1,12 +1,9 @@
 package com.commonplant.garden.user.service;
 
-import com.commonplant.garden.common.exception.BusinessException;
-import com.commonplant.garden.user.entity.User;
 import com.commonplant.garden.user.entity.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
-import static com.commonplant.garden.user.exception.UserErrorCode.*;
 
 @RequiredArgsConstructor
 @Service
