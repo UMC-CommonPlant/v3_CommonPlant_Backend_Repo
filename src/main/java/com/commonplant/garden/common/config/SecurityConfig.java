@@ -5,6 +5,7 @@ import com.commonplant.garden.common.util.JwtUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
@@ -31,9 +32,9 @@ public class SecurityConfig {
 
                 // 경로별 인증 규칙
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/v1/auth/**").permitAll()
-                        .requestMatchers("/users/**").permitAll() // 사용자 토큰 발행 테스트
-                        .requestMatchers("/api/v1/health").permitAll()
+                        .requestMatchers("/auth/**").permitAll()
+                        .requestMatchers(HttpMethod.POST,"/users").permitAll() // 사용자 토큰 발행 테스트
+                        .requestMatchers("/health").permitAll()
                         .anyRequest().authenticated()
                 )
 

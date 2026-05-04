@@ -19,12 +19,7 @@ public class UserController {
     private final JwtUtil jwtUtil;
     private final UserService userService;
 
-    @GetMapping
-    public ResponseEntity<JsonResponse> getUserByNanoId(@AuthenticationPrincipal String nanoid) {
-        UserResponse response = userService.getUserByNanoId(nanoid);
-        return ResponseEntity.ok(new JsonResponse(true, 200, "getUserByNanoId", response));
-    }
-
+    /* 소셜로그인 구현 전 테스트 메서드 */
     @PostMapping
     public ResponseEntity<JsonResponse> createUser(@Valid @RequestBody UserRequest.CreateRequest request) {
         UserResponse response = userService.createUser(request);
@@ -32,16 +27,22 @@ public class UserController {
         return ResponseEntity.status(HttpStatus.CREATED).body(new JsonResponse(true, 200, "createUser", accessToken));
     }
 
-    @PutMapping("/{id}")
+    @GetMapping
+    public ResponseEntity<JsonResponse> getUserByNanoId(@AuthenticationPrincipal String nanoId) {
+        UserResponse response = userService.getUserByNanoId(nanoId);
+        return ResponseEntity.ok(new JsonResponse(true, 200, "getUserByNanoId", response));
+    }
+
+    @PutMapping
     public ResponseEntity<JsonResponse> updateUser(
-            @PathVariable String id, @RequestBody UserRequest.UpdateRequest request) {
-        UserResponse response = userService.updateUser(id, request);
+            @AuthenticationPrincipal String nanoId, @RequestBody UserRequest.UpdateRequest request) {
+        UserResponse response = userService.updateUser(nanoId, request);
         return ResponseEntity.ok(new JsonResponse(true, 200, "updateUser", response));
     }
 
-    @DeleteMapping("/{id}")
-    public ResponseEntity<JsonResponse> deleteUser(@PathVariable String id) {
-        userService.deleteUser(id);
+    @DeleteMapping
+    public ResponseEntity<JsonResponse> deleteUser(@AuthenticationPrincipal String nanoId) {
+        userService.deleteUser(nanoId);
         return ResponseEntity.ok(new JsonResponse(true, 200, "deleteUser", null));
     }
 }
