@@ -3,7 +3,6 @@ package com.commonplant.garden.user.exception;
 import com.commonplant.garden.common.exception.ErrorCode;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
-
 import org.springframework.http.HttpStatus;
 
 /**
@@ -13,10 +12,10 @@ import org.springframework.http.HttpStatus;
 @Getter
 @RequiredArgsConstructor
 public enum UserErrorCode implements ErrorCode {
-    NOT_FOUND_USER(400, "U001", "잘못된 입력 값입니다."),
+    NOT_FOUND_USER(HttpStatus.NOT_FOUND, "U001", "잘못된 입력 값입니다."),
     ;
 
-    private final int status;
+    private final HttpStatus status;
     private final String code;
     private final String message;
 }

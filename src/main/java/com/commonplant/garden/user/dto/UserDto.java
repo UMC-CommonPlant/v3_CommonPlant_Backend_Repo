@@ -1,4 +1,4 @@
-package com.umc.commonplant.domain.user.dto;
+package com.commonplant.garden.user.dto;
 
 
 import lombok.AllArgsConstructor;
