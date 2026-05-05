@@ -6,6 +6,13 @@ import com.commonplant.garden.plant.dto.PlantResponse;
 public interface PlantService {
     PlantResponse.EditInfoResponse getPlantEditInfo(String nanoId, Long placeId, Long plantId);
 
+    PlantResponse.EditInfoResponse updatePlant(
+            String nanoId,
+            Long placeId,
+            Long plantId,
+            PlantRequest.UpdateRequest request
+    );
+
     PlantResponse.DetailResponse getPlant(String nanoId, Long placeId, Long plantId);
 
     PlantResponse.PlantListResponse getPlants(String nanoId, int page, int size);

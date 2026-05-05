@@ -12,6 +12,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -32,6 +33,17 @@ public class PlantController {
     ) {
         PlantResponse.EditInfoResponse response = plantService.getPlantEditInfo(nanoId, placeId, plantId);
         return ResponseEntity.ok(new JsonResponse(true, 200, "getPlantEditInfo", response));
+    }
+
+    @PutMapping("/{plantId}")
+    public ResponseEntity<JsonResponse> updatePlant(
+            @AuthenticationPrincipal String nanoId,
+            @PathVariable("plantId") Long plantId,
+            @RequestParam("placeId") Long placeId,
+            @RequestBody PlantRequest.UpdateRequest request
+    ) {
+        PlantResponse.EditInfoResponse response = plantService.updatePlant(nanoId, placeId, plantId, request);
+        return ResponseEntity.ok(new JsonResponse(true, 200, "updatePlant", response));
     }
 
     @GetMapping("/{plantId}")

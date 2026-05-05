@@ -63,4 +63,10 @@ public class Plant extends BaseTime {
         this.imageKey = imageKey;
         this.description = description;
     }
+
+    public void updateProfile(String imageKey, String nickname, LocalDate lastWateredDate) {
+        if (imageKey != null) this.imageKey = imageKey;
+        if (nickname != null) this.nickname = nickname;
+        if (lastWateredDate != null) this.lastWateredDate = lastWateredDate;
+    }
 }

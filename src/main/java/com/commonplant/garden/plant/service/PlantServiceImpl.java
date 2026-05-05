@@ -11,6 +11,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Slice;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import java.util.List;
 
@@ -27,6 +28,26 @@ public class PlantServiceImpl implements PlantService {
     @Override
     public PlantResponse.EditInfoResponse getPlantEditInfo(String nanoId, Long placeId, Long plantId) {
         Plant plant = findAccessiblePlant(nanoId, placeId, plantId);
+        return PlantResponse.EditInfoResponse.from(plant);
+    }
+
+    @Override
+    @Transactional
+    public PlantResponse.EditInfoResponse updatePlant(
+            String nanoId,
+            Long placeId,
+            Long plantId,
+            PlantRequest.UpdateRequest request
+    ) {
+        validateUpdateRequest(request);
+        Plant plant = findAccessiblePlant(nanoId, placeId, plantId);
+
+        plant.updateProfile(
+                request.getImageKey(),
+                request.getNickname(),
+                request.getLastWateredDate()
+        );
+
         return PlantResponse.EditInfoResponse.from(plant);
     }
 
@@ -98,6 +119,24 @@ public class PlantServiceImpl implements PlantService {
     private void validatePlantBelongsToPlace(Plant plant, Long placeId) {
         if (!plant.getPlaceId().equals(placeId)) {
             throw new BusinessException(PlantErrorCode.PLANT_NOT_FOUND);
+        }
+    }
+
+    private void validateUpdateRequest(PlantRequest.UpdateRequest request) {
+        if (request == null || (
+                request.getImageKey() == null
+                        && request.getNickname() == null
+                        && request.getLastWateredDate() == null
+        )) {
+            throw new BusinessException(PlantErrorCode.NO_FIELDS_TO_UPDATE);
+        }
+
+        if (request.getNickname() != null && !StringUtils.hasText(request.getNickname())) {
+            throw new BusinessException(PlantErrorCode.INVALID_NICKNAME);
+        }
+
+        if (request.getImageKey() != null && !StringUtils.hasText(request.getImageKey())) {
+            throw new BusinessException(PlantErrorCode.INVALID_IMAGE_KEY);
         }
     }
 

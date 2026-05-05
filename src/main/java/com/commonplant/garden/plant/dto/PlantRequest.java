@@ -28,4 +28,14 @@ public class PlantRequest {
 
         private String description;
     }
+
+    @Getter
+    @NoArgsConstructor
+    public static class UpdateRequest {
+        private String imageKey;
+
+        private String nickname;
+
+        private LocalDate lastWateredDate;
+    }
 }
