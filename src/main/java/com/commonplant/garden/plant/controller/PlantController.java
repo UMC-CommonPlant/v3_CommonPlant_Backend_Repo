@@ -9,6 +9,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -24,6 +25,16 @@ import org.springframework.web.bind.annotation.RestController;
 public class PlantController {
 
     private final PlantService plantService;
+
+    @DeleteMapping("/{plantId}")
+    public ResponseEntity<JsonResponse> deletePlant(
+            @AuthenticationPrincipal String nanoId,
+            @PathVariable("plantId") Long plantId,
+            @RequestParam("placeId") Long placeId
+    ) {
+        PlantResponse.DeleteResponse response = plantService.deletePlant(nanoId, placeId, plantId);
+        return ResponseEntity.ok(new JsonResponse(true, 200, "deletePlant", response));
+    }
 
     @GetMapping("/{plantId}/edit")
     public ResponseEntity<JsonResponse> getPlantEditInfo(

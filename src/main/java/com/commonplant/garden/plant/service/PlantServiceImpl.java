@@ -26,6 +26,19 @@ public class PlantServiceImpl implements PlantService {
     private final PlantRepository plantRepository;
 
     @Override
+    @Transactional
+    public PlantResponse.DeleteResponse deletePlant(String nanoId, Long placeId, Long plantId) {
+        Plant plant = findAccessiblePlant(nanoId, placeId, plantId);
+        Long deletedPlantId = plant.getPlantIdx();
+
+        // 현재 Plant는 imageKey만 보관한다. S3 객체/이미지 메타데이터 삭제는
+        // image 도메인 연동 후 별도 정책으로 처리한다.
+        plantRepository.delete(plant);
+
+        return PlantResponse.DeleteResponse.of(deletedPlantId);
+    }
+
+    @Override
     public PlantResponse.EditInfoResponse getPlantEditInfo(String nanoId, Long placeId, Long plantId) {
         Plant plant = findAccessiblePlant(nanoId, placeId, plantId);
         return PlantResponse.EditInfoResponse.from(plant);

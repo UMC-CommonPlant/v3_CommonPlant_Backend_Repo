@@ -24,6 +24,18 @@ public class PlantResponse {
 
     @Getter
     @Builder
+    public static class DeleteResponse {
+        private Long plantId;
+
+        public static DeleteResponse of(Long plantId) {
+            return DeleteResponse.builder()
+                    .plantId(plantId)
+                    .build();
+        }
+    }
+
+    @Getter
+    @Builder
     public static class PlantListResponse {
         private List<PlantSummary> plants;
         private boolean hasNext;

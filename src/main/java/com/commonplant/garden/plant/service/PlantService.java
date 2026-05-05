@@ -4,6 +4,8 @@ import com.commonplant.garden.plant.dto.PlantRequest;
 import com.commonplant.garden.plant.dto.PlantResponse;
 
 public interface PlantService {
+    PlantResponse.DeleteResponse deletePlant(String nanoId, Long placeId, Long plantId);
+
     PlantResponse.EditInfoResponse getPlantEditInfo(String nanoId, Long placeId, Long plantId);
 
     PlantResponse.EditInfoResponse updatePlant(
