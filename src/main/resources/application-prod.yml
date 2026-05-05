@@ -16,3 +16,10 @@ spring:
 s3:
   bucket: ${S3_BUCKET_NAME}
   presigned-url-expiration-minutes: 10
+  image:
+    max-upload-count: 5
+    max-size-bytes: 10485760
+    allowed-content-types:
+      - image/jpeg
+      - image/png
+      - image/webp
