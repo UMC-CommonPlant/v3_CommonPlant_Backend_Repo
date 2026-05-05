@@ -46,4 +46,10 @@ public class Image extends BaseTime {
         this.contentType = contentType;
         this.sizeBytes = sizeBytes;
     }
+
+    public void update(String imageKey, String contentType, Long sizeBytes) {
+        this.imageKey = imageKey;
+        this.contentType = contentType;
+        this.sizeBytes = sizeBytes;
+    }
 }

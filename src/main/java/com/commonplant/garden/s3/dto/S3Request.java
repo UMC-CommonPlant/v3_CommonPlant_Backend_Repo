@@ -25,6 +25,13 @@ public class S3Request {
 
     @Getter
     @NoArgsConstructor
+    public static class UpdateImage {
+        @NotBlank
+        private String key;
+    }
+
+    @Getter
+    @NoArgsConstructor
     public static class ImageFile {
         @NotBlank
         private String fileName;

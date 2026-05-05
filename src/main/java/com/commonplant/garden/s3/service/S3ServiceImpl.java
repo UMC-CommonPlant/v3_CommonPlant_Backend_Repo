@@ -64,6 +64,25 @@ public class S3ServiceImpl implements S3Service {
     }
 
     @Override
+    @Transactional
+    public S3Response.ImageInfo updateImage(String nanoId, Long imageId, S3Request.UpdateImage request) {
+        Image image = findImageByIdAndOwner(imageId, nanoId);
+        validateImageKey(nanoId, request.getKey());
+        if (imageRepository.existsByImageKey(request.getKey())) {
+            throw new BusinessException(S3ErrorCode.INVALID_IMAGE_KEY);
+        }
+
+        HeadObjectResponse object = getUploadedObject(request.getKey());
+        validateUploadedImage(object);
+
+        String oldImageKey = image.getImageKey();
+        image.update(request.getKey(), object.contentType(), object.contentLength());
+        deleteObject(oldImageKey);
+
+        return S3Response.ImageInfo.from(image);
+    }
+
+    @Override
     public S3Response.ImageUploadUrls createImageUploadUrls(String nanoId, S3Request.CreateImageUploadUrls request) {
         User user = findActiveUser(nanoId);
         validateImageCount(request.getFiles().size());

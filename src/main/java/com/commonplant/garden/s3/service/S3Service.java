@@ -8,6 +8,8 @@ public interface S3Service {
 
     void deleteImage(String nanoId, Long imageId);
 
+    S3Response.ImageInfo updateImage(String nanoId, Long imageId, S3Request.UpdateImage request);
+
     S3Response.ImageUploadUrls createImageUploadUrls(String nanoId, S3Request.CreateImageUploadUrls request);
 
     S3Response.CompletedImages completeImageUpload(String nanoId, S3Request.CompleteImageUpload request);
