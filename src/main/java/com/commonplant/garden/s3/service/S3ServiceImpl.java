@@ -17,6 +17,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
 import software.amazon.awssdk.services.s3.model.HeadObjectResponse;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
@@ -52,6 +53,14 @@ public class S3ServiceImpl implements S3Service {
         Instant expiresAt = Instant.now().plus(expiresIn);
 
         return S3Response.ImageInfo.of(image, createPresignedGetUrl(image.getImageKey(), expiresIn), expiresAt);
+    }
+
+    @Override
+    @Transactional
+    public void deleteImage(String nanoId, Long imageId) {
+        Image image = findImageByIdAndOwner(imageId, nanoId);
+        deleteObject(image.getImageKey());
+        imageRepository.delete(image);
     }
 
     @Override
@@ -207,6 +216,13 @@ public class S3ServiceImpl implements S3Service {
         return s3Presigner.presignGetObject(presignRequest)
                 .url()
                 .toString();
+    }
+
+    private void deleteObject(String imageKey) {
+        s3Client.deleteObject(DeleteObjectRequest.builder()
+                .bucket(s3Properties.bucket())
+                .key(imageKey)
+                .build());
     }
 
     private String createImageKey(String nanoId, String fileName) {

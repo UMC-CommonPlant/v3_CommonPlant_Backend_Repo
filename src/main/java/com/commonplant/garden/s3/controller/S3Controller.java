@@ -8,6 +8,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -29,6 +30,15 @@ public class S3Controller {
     ) {
         S3Response.ImageInfo response = s3Service.getImage(nanoId, imageId);
         return ResponseEntity.ok(new JsonResponse(true, 200, "getImage", response));
+    }
+
+    @DeleteMapping("/images/{imageId}")
+    public ResponseEntity<JsonResponse> deleteImage(
+            @AuthenticationPrincipal String nanoId,
+            @PathVariable("imageId") Long imageId
+    ) {
+        s3Service.deleteImage(nanoId, imageId);
+        return ResponseEntity.ok(new JsonResponse(true, 200, "deleteImage", null));
     }
 
     @PostMapping("/images/presigned-urls")
