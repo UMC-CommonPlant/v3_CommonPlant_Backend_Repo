@@ -1,9 +1,11 @@
 package com.commonplant.garden.plant.service;
 
+import com.commonplant.garden.common.exception.BusinessException;
 import com.commonplant.garden.plant.dto.PlantRequest;
 import com.commonplant.garden.plant.dto.PlantResponse;
 import com.commonplant.garden.plant.entity.Plant;
 import com.commonplant.garden.plant.entity.PlantRepository;
+import com.commonplant.garden.plant.exception.PlantErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Slice;
@@ -21,6 +23,19 @@ public class PlantServiceImpl implements PlantService {
     private static final int MAX_PAGE_SIZE = 50;
 
     private final PlantRepository plantRepository;
+
+    @Override
+    public PlantResponse.DetailResponse getPlant(String nanoId, Long placeId, Long plantId) {
+        validatePlaceAccess(nanoId, placeId);
+
+        Plant plant = plantRepository.findById(plantId)
+                .orElseThrow(() -> new BusinessException(PlantErrorCode.PLANT_NOT_FOUND));
+        validatePlantBelongsToPlace(plant, placeId);
+
+        String memo = findPlantMemo(plant.getPlantIdx());
+        String placeName = findPlaceName(placeId);
+        return PlantResponse.DetailResponse.of(plant, memo, placeName);
+    }
 
     @Override
     public PlantResponse.PlantListResponse getPlants(String nanoId, int page, int size) {
@@ -64,16 +79,40 @@ public class PlantServiceImpl implements PlantService {
     }
 
     private Long resolveAccessiblePlaceId(String nanoId, Long placeId) {
+        validatePlaceAccess(nanoId, placeId);
+
         // TODO: place 도메인 구현 후 nanoId가 속해 있는 place list를 반환한다.
         // TODO: 사용자가 place를 선택한 후, 해당 place 접근 권한 검증을 호출한다.
         // TODO: place의 id를 반환한다.
         return placeId;
     }
 
+    private void validatePlaceAccess(String nanoId, Long placeId) {
+        if (!findAccessiblePlaceIds(nanoId).contains(placeId)) {
+            throw new BusinessException(PlantErrorCode.PLACE_ACCESS_DENIED);
+        }
+    }
+
+    private void validatePlantBelongsToPlace(Plant plant, Long placeId) {
+        if (!plant.getPlaceId().equals(placeId)) {
+            throw new BusinessException(PlantErrorCode.PLANT_NOT_FOUND);
+        }
+    }
+
     private List<Long> findAccessiblePlaceIds(String nanoId) {
         // TODO: place 도메인 구현 후 nanoId 기준으로 사용자가 속한 place id 목록을 조회한다.
         // 테스트용: 무조건 placeId 1 반환
         return List.of(1L);
+    }
+
+    private String findPlantMemo(Long plantId) {
+        // TODO: memo 도메인 구현 후 plantId 기준 대표/최근 메모를 조회한다.
+        return null;
+    }
+
+    private String findPlaceName(Long placeId) {
+        // TODO: place 도메인 구현 후 placeId 기준 장소 이름을 조회한다.
+        return null;
     }
 
     private int normalizePage(int page) {
