@@ -36,6 +36,9 @@ dependencies {
     // nanoId
     implementation 'com.aventrix.jnanoid:jnanoid:2.0.0'
 
+	// random string
+	implementation 'org.apache.commons:commons-lang3:3.18.0'
+
     // AWS
     implementation platform('software.amazon.awssdk:bom:2.25.70')
     implementation 'software.amazon.awssdk:s3'
