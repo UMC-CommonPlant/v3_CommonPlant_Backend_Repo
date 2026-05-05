@@ -47,8 +47,8 @@ public class S3ServiceImpl implements S3Service {
     private final UserRepository userRepository;
 
     @Override
-    public S3Response.ImageInfo getImage(String nanoId, Long imageId) {
-        Image image = findImageByIdAndOwner(imageId, nanoId);
+    public S3Response.ImageInfo getImage(String nanoId, Long placeId, String key) {
+        Image image = findAccessibleImage(nanoId, placeId, key);
         Duration expiresIn = Duration.ofMinutes(s3Properties.presignedUrlExpirationMinutes());
         Instant expiresAt = Instant.now().plus(expiresIn);
 
@@ -57,17 +57,17 @@ public class S3ServiceImpl implements S3Service {
 
     @Override
     @Transactional
-    public void deleteImage(String nanoId, Long imageId) {
-        Image image = findImageByIdAndOwner(imageId, nanoId);
+    public void deleteImage(String nanoId, Long placeId, String key) {
+        Image image = findAccessibleImage(nanoId, placeId, key);
         deleteObject(image.getImageKey());
         imageRepository.delete(image);
     }
 
     @Override
     @Transactional
-    public S3Response.ImageInfo updateImage(String nanoId, Long imageId, S3Request.UpdateImage request) {
-        Image image = findImageByIdAndOwner(imageId, nanoId);
-        validateImageKey(nanoId, request.getKey());
+    public S3Response.ImageInfo updateImage(String nanoId, Long placeId, String key, S3Request.UpdateImage request) {
+        Image image = findAccessibleImage(nanoId, placeId, key);
+        validateImageKey(nanoId, placeId, request.getKey());
         if (imageRepository.existsByImageKey(request.getKey())) {
             throw new BusinessException(S3ErrorCode.INVALID_IMAGE_KEY);
         }
@@ -85,13 +85,14 @@ public class S3ServiceImpl implements S3Service {
     @Override
     public S3Response.ImageUploadUrls createImageUploadUrls(String nanoId, S3Request.CreateImageUploadUrls request) {
         User user = findActiveUser(nanoId);
+        validatePlaceAccess(nanoId, request.getPlaceId());
         validateImageCount(request.getFiles().size());
 
         Duration expiresIn = Duration.ofMinutes(s3Properties.presignedUrlExpirationMinutes());
         Instant expiresAt = Instant.now().plus(expiresIn);
 
         List<S3Response.ImageUploadUrl> files = request.getFiles().stream()
-                .map(file -> createImageUploadUrl(user, file, expiresIn, expiresAt))
+                .map(file -> createImageUploadUrl(user, request.getPlaceId(), file, expiresIn, expiresAt))
                 .toList();
 
         return S3Response.ImageUploadUrls.builder()
@@ -104,10 +105,11 @@ public class S3ServiceImpl implements S3Service {
     @Transactional
     public S3Response.CompletedImages completeImageUpload(String nanoId, S3Request.CompleteImageUpload request) {
         User user = findActiveUser(nanoId);
+        validatePlaceAccess(nanoId, request.getPlaceId());
         validateImageCount(request.getKeys().size());
 
         List<Image> images = request.getKeys().stream()
-                .map(key -> completeImageUpload(user, key))
+                .map(key -> completeImageUpload(user, request.getPlaceId(), key))
                 .toList();
 
         return S3Response.CompletedImages.builder()
@@ -119,13 +121,14 @@ public class S3ServiceImpl implements S3Service {
 
     private S3Response.ImageUploadUrl createImageUploadUrl(
             User user,
+            Long placeId,
             S3Request.ImageFile file,
             Duration expiresIn,
             Instant expiresAt
     ) {
         validateRequestedImage(file.getContentType());
 
-        String imageKey = createImageKey(user.getNanoId(), file.getFileName());
+        String imageKey = createImageKey(placeId, user.getNanoId(), file.getFileName());
         String uploadUrl = createPresignedPutUrl(imageKey, file.getContentType(), expiresIn);
 
         return S3Response.ImageUploadUrl.builder()
@@ -135,8 +138,8 @@ public class S3ServiceImpl implements S3Service {
                 .build();
     }
 
-    private Image completeImageUpload(User user, String imageKey) {
-        validateImageKey(user.getNanoId(), imageKey);
+    private Image completeImageUpload(User user, Long placeId, String imageKey) {
+        validateImageKey(user.getNanoId(), placeId, imageKey);
         if (imageRepository.existsByImageKey(imageKey)) {
             throw new BusinessException(S3ErrorCode.INVALID_IMAGE_KEY);
         }
@@ -146,6 +149,7 @@ public class S3ServiceImpl implements S3Service {
 
         return imageRepository.save(Image.builder()
                 .user(user)
+                .placeId(placeId)
                 .imageKey(imageKey)
                 .contentType(object.contentType())
                 .sizeBytes(object.contentLength())
@@ -157,9 +161,22 @@ public class S3ServiceImpl implements S3Service {
                 .orElseThrow(() -> new BusinessException(UserErrorCode.USER_NOT_FOUND));
     }
 
-    private Image findImageByIdAndOwner(Long imageId, String nanoId) {
-        return imageRepository.findByImageIdxAndUser_NanoIdAndUser_Status(imageId, nanoId, UserStatus.ACTIVE)
+    private Image findAccessibleImage(String nanoId, Long placeId, String imageKey) {
+        validatePlaceAccess(nanoId, placeId);
+        return imageRepository.findByImageKeyAndPlaceId(imageKey, placeId)
                 .orElseThrow(() -> new BusinessException(S3ErrorCode.IMAGE_NOT_FOUND));
+    }
+
+    private void validatePlaceAccess(String nanoId, Long placeId) {
+        if (!findAccessiblePlaceIds(nanoId).contains(placeId)) {
+            throw new BusinessException(S3ErrorCode.PLACE_ACCESS_DENIED);
+        }
+    }
+
+    private List<Long> findAccessiblePlaceIds(String nanoId) {
+        // TODO: place 도메인 구현 후 nanoId 기준으로 사용자가 속한 place id 목록을 조회한다.
+        // 테스트용: 무조건 placeId 1 반환
+        return List.of(1L);
     }
 
     private void validateImageCount(int imageCount) {
@@ -186,8 +203,8 @@ public class S3ServiceImpl implements S3Service {
         }
     }
 
-    private void validateImageKey(String nanoId, String imageKey) {
-        String expectedPrefix = IMAGE_KEY_PREFIX + "/" + nanoId + "/";
+    private void validateImageKey(String nanoId, Long placeId, String imageKey) {
+        String expectedPrefix = IMAGE_KEY_PREFIX + "/" + placeId + "/" + nanoId + "/";
         if (!StringUtils.hasText(imageKey) || !imageKey.startsWith(expectedPrefix) || imageKey.contains("..")) {
             throw new BusinessException(S3ErrorCode.INVALID_IMAGE_KEY);
         }
@@ -244,8 +261,8 @@ public class S3ServiceImpl implements S3Service {
                 .build());
     }
 
-    private String createImageKey(String nanoId, String fileName) {
-        return IMAGE_KEY_PREFIX + "/" + nanoId + "/" + IdUtil.generateUuid() + extractExtension(fileName);
+    private String createImageKey(Long placeId, String nanoId, String fileName) {
+        return IMAGE_KEY_PREFIX + "/" + placeId + "/" + nanoId + "/" + IdUtil.generateUuid() + extractExtension(fileName);
     }
 
     private String extractExtension(String fileName) {

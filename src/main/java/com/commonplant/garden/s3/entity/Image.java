@@ -30,6 +30,9 @@ public class Image extends BaseTime {
     @JoinColumn(name = "user_idx", nullable = false)
     private User user;
 
+    @Column(name = "place_idx", nullable = false)
+    private Long placeId;
+
     @Column(name = "image_key", nullable = false, unique = true)
     private String imageKey;
 
@@ -40,8 +43,9 @@ public class Image extends BaseTime {
     private Long sizeBytes;
 
     @Builder
-    public Image(User user, String imageKey, String contentType, Long sizeBytes) {
+    public Image(User user, Long placeId, String imageKey, String contentType, Long sizeBytes) {
         this.user = user;
+        this.placeId = placeId;
         this.imageKey = imageKey;
         this.contentType = contentType;
         this.sizeBytes = sizeBytes;

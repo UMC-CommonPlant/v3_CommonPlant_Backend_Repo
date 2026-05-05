@@ -2,6 +2,7 @@ package com.commonplant.garden.s3.dto;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
@@ -12,6 +13,9 @@ public class S3Request {
     @Getter
     @NoArgsConstructor
     public static class CreateImageUploadUrls {
+        @NotNull
+        private Long placeId;
+
         @NotEmpty
         private List<ImageFile> files;
     }
@@ -19,6 +23,9 @@ public class S3Request {
     @Getter
     @NoArgsConstructor
     public static class CompleteImageUpload {
+        @NotNull
+        private Long placeId;
+
         @NotEmpty
         private List<String> keys;
     }
