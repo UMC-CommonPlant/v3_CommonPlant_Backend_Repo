@@ -5,15 +5,45 @@ import com.commonplant.garden.plant.dto.PlantResponse;
 import com.commonplant.garden.plant.entity.Plant;
 import com.commonplant.garden.plant.entity.PlantRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Slice;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class PlantServiceImpl implements PlantService {
 
+    private static final int DEFAULT_PAGE_SIZE = 20;
+    private static final int MAX_PAGE_SIZE = 50;
+
     private final PlantRepository plantRepository;
+
+    @Override
+    public PlantResponse.PlantListResponse getPlants(String nanoId, int page, int size) {
+        List<Long> placeIds = findAccessiblePlaceIds(nanoId);
+        if (placeIds.isEmpty()) {
+            return PlantResponse.PlantListResponse.builder()
+                    .plants(List.of())
+                    .hasNext(false)
+                    .build();
+        }
+
+        Slice<Plant> plants = plantRepository.findAllByPlaceIdInOrderByPlantIdxDesc(
+                placeIds,
+                PageRequest.of(normalizePage(page), normalizeSize(size))
+        );
+
+        return PlantResponse.PlantListResponse.builder()
+                .plants(plants.getContent().stream()
+                        .map(PlantResponse.PlantSummary::from)
+                        .toList())
+                .hasNext(plants.hasNext())
+                .build();
+    }
 
     @Override
     @Transactional
@@ -38,5 +68,22 @@ public class PlantServiceImpl implements PlantService {
         // TODO: 사용자가 place를 선택한 후, 해당 place 접근 권한 검증을 호출한다.
         // TODO: place의 id를 반환한다.
         return placeId;
+    }
+
+    private List<Long> findAccessiblePlaceIds(String nanoId) {
+        // TODO: place 도메인 구현 후 nanoId 기준으로 사용자가 속한 place id 목록을 조회한다.
+        // 테스트용: 무조건 placeId 1 반환
+        return List.of(1L);
+    }
+
+    private int normalizePage(int page) {
+        return Math.max(page, 0);
+    }
+
+    private int normalizeSize(int size) {
+        if (size < 1) {
+            return DEFAULT_PAGE_SIZE;
+        }
+        return Math.min(size, MAX_PAGE_SIZE);
     }
 }

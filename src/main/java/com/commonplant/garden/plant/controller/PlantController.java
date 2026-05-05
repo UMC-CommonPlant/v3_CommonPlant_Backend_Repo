@@ -9,9 +9,11 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RequiredArgsConstructor
@@ -20,6 +22,16 @@ import org.springframework.web.bind.annotation.RestController;
 public class PlantController {
 
     private final PlantService plantService;
+
+    @GetMapping
+    public ResponseEntity<JsonResponse> getPlants(
+            @AuthenticationPrincipal String nanoId,
+            @RequestParam(name = "page", defaultValue = "0") int page,
+            @RequestParam(name = "size", defaultValue = "20") int size
+    ) {
+        PlantResponse.PlantListResponse response = plantService.getPlants(nanoId, page, size);
+        return ResponseEntity.ok(new JsonResponse(true, 200, "getPlants", response));
+    }
 
     @PostMapping
     public ResponseEntity<JsonResponse> createPlant(
