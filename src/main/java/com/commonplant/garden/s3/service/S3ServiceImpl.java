@@ -19,9 +19,11 @@ import org.springframework.util.StringUtils;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
 import software.amazon.awssdk.services.s3.model.HeadObjectResponse;
+import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
+import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
 import software.amazon.awssdk.services.s3.presigner.model.PutObjectPresignRequest;
 
 import java.time.Duration;
@@ -42,6 +44,15 @@ public class S3ServiceImpl implements S3Service {
     private final S3Properties s3Properties;
     private final ImageRepository imageRepository;
     private final UserRepository userRepository;
+
+    @Override
+    public S3Response.ImageInfo getImage(String nanoId, Long imageId) {
+        Image image = findImageByIdAndOwner(imageId, nanoId);
+        Duration expiresIn = Duration.ofMinutes(s3Properties.presignedUrlExpirationMinutes());
+        Instant expiresAt = Instant.now().plus(expiresIn);
+
+        return S3Response.ImageInfo.of(image, createPresignedGetUrl(image.getImageKey(), expiresIn), expiresAt);
+    }
 
     @Override
     public S3Response.ImageUploadUrls createImageUploadUrls(String nanoId, S3Request.CreateImageUploadUrls request) {
@@ -118,6 +129,11 @@ public class S3ServiceImpl implements S3Service {
                 .orElseThrow(() -> new BusinessException(UserErrorCode.USER_NOT_FOUND));
     }
 
+    private Image findImageByIdAndOwner(Long imageId, String nanoId) {
+        return imageRepository.findByImageIdxAndUser_NanoIdAndUser_Status(imageId, nanoId, UserStatus.ACTIVE)
+                .orElseThrow(() -> new BusinessException(S3ErrorCode.IMAGE_NOT_FOUND));
+    }
+
     private void validateImageCount(int imageCount) {
         if (imageCount < 1 || imageCount > s3Properties.image().maxUploadCount()) {
             throw new BusinessException(S3ErrorCode.TOO_MANY_IMAGES);
@@ -173,6 +189,22 @@ public class S3ServiceImpl implements S3Service {
                 .build();
 
         return s3Presigner.presignPutObject(presignRequest)
+                .url()
+                .toString();
+    }
+
+    private String createPresignedGetUrl(String imageKey, Duration expiresIn) {
+        GetObjectRequest getObjectRequest = GetObjectRequest.builder()
+                .bucket(s3Properties.bucket())
+                .key(imageKey)
+                .build();
+
+        GetObjectPresignRequest presignRequest = GetObjectPresignRequest.builder()
+                .signatureDuration(expiresIn)
+                .getObjectRequest(getObjectRequest)
+                .build();
+
+        return s3Presigner.presignGetObject(presignRequest)
                 .url()
                 .toString();
     }

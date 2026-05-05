@@ -37,6 +37,8 @@ public class S3Response {
         private String key;
         private String contentType;
         private Long sizeBytes;
+        private String downloadUrl;
+        private Instant expiresAt;
 
         public static ImageInfo from(Image image) {
             return ImageInfo.builder()
@@ -44,6 +46,17 @@ public class S3Response {
                     .key(image.getImageKey())
                     .contentType(image.getContentType())
                     .sizeBytes(image.getSizeBytes())
+                    .build();
+        }
+
+        public static ImageInfo of(Image image, String downloadUrl, Instant expiresAt) {
+            return ImageInfo.builder()
+                    .imageId(image.getImageIdx())
+                    .key(image.getImageKey())
+                    .contentType(image.getContentType())
+                    .sizeBytes(image.getSizeBytes())
+                    .downloadUrl(downloadUrl)
+                    .expiresAt(expiresAt)
                     .build();
         }
     }
