@@ -72,4 +72,20 @@ public class PlantResponse {
                     .build();
         }
     }
+
+    @Getter
+    @Builder
+    public static class EditInfoResponse {
+        private String imageKey;
+        private String nickname;
+        private LocalDate lastWateredDate;
+
+        public static EditInfoResponse from(Plant plant) {
+            return EditInfoResponse.builder()
+                    .imageKey(plant.getImageKey())
+                    .nickname(plant.getNickname())
+                    .lastWateredDate(plant.getLastWateredDate())
+                    .build();
+        }
+    }
 }

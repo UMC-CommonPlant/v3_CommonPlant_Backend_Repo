@@ -25,12 +25,14 @@ public class PlantServiceImpl implements PlantService {
     private final PlantRepository plantRepository;
 
     @Override
-    public PlantResponse.DetailResponse getPlant(String nanoId, Long placeId, Long plantId) {
-        validatePlaceAccess(nanoId, placeId);
+    public PlantResponse.EditInfoResponse getPlantEditInfo(String nanoId, Long placeId, Long plantId) {
+        Plant plant = findAccessiblePlant(nanoId, placeId, plantId);
+        return PlantResponse.EditInfoResponse.from(plant);
+    }
 
-        Plant plant = plantRepository.findById(plantId)
-                .orElseThrow(() -> new BusinessException(PlantErrorCode.PLANT_NOT_FOUND));
-        validatePlantBelongsToPlace(plant, placeId);
+    @Override
+    public PlantResponse.DetailResponse getPlant(String nanoId, Long placeId, Long plantId) {
+        Plant plant = findAccessiblePlant(nanoId, placeId, plantId);
 
         String memo = findPlantMemo(plant.getPlantIdx());
         String placeName = findPlaceName(placeId);
@@ -97,6 +99,15 @@ public class PlantServiceImpl implements PlantService {
         if (!plant.getPlaceId().equals(placeId)) {
             throw new BusinessException(PlantErrorCode.PLANT_NOT_FOUND);
         }
+    }
+
+    private Plant findAccessiblePlant(String nanoId, Long placeId, Long plantId) {
+        validatePlaceAccess(nanoId, placeId);
+
+        Plant plant = plantRepository.findById(plantId)
+                .orElseThrow(() -> new BusinessException(PlantErrorCode.PLANT_NOT_FOUND));
+        validatePlantBelongsToPlace(plant, placeId);
+        return plant;
     }
 
     private List<Long> findAccessiblePlaceIds(String nanoId) {

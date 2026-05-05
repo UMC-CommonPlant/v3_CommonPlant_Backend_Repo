@@ -24,6 +24,16 @@ public class PlantController {
 
     private final PlantService plantService;
 
+    @GetMapping("/{plantId}/edit")
+    public ResponseEntity<JsonResponse> getPlantEditInfo(
+            @AuthenticationPrincipal String nanoId,
+            @PathVariable("plantId") Long plantId,
+            @RequestParam("placeId") Long placeId
+    ) {
+        PlantResponse.EditInfoResponse response = plantService.getPlantEditInfo(nanoId, placeId, plantId);
+        return ResponseEntity.ok(new JsonResponse(true, 200, "getPlantEditInfo", response));
+    }
+
     @GetMapping("/{plantId}")
     public ResponseEntity<JsonResponse> getPlant(
             @AuthenticationPrincipal String nanoId,
