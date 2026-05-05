@@ -39,6 +39,10 @@ dependencies {
 	// random string
 	implementation 'org.apache.commons:commons-lang3:3.18.0'
 
+    // AWS
+    implementation platform('software.amazon.awssdk:bom:2.25.70')
+    implementation 'software.amazon.awssdk:s3'
+
     // Database
     // runtimeOnly 'com.h2database:h2'
     runtimeOnly 'org.postgresql:postgresql'
