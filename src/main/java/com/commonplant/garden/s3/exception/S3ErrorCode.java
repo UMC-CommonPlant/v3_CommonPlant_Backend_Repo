@@ -15,7 +15,8 @@ public enum S3ErrorCode implements ErrorCode {
     INVALID_IMAGE_KEY(HttpStatus.BAD_REQUEST, "S004", "이미지 키가 올바르지 않습니다."),
     IMAGE_NOT_UPLOADED(HttpStatus.BAD_REQUEST, "S005", "업로드된 이미지를 찾을 수 없습니다."),
     IMAGE_NOT_FOUND(HttpStatus.NOT_FOUND, "S006", "이미지를 찾을 수 없습니다."),
-    PLACE_ACCESS_DENIED(HttpStatus.FORBIDDEN, "S007", "장소 접근 권한이 없습니다.");
+    PLACE_ACCESS_DENIED(HttpStatus.FORBIDDEN, "S007", "장소 접근 권한이 없습니다."),
+    IMAGE_UPLOAD_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "S008", "이미지 업로드에 실패했습니다.");
 
     private final HttpStatus status;
     private final String code;

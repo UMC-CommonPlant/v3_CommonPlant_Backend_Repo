@@ -11,21 +11,6 @@ public class S3Response {
 
     @Getter
     @Builder
-    public static class ImageUploadUrls {
-        private List<ImageUploadUrl> files;
-        private int expiresInMinutes;
-    }
-
-    @Getter
-    @Builder
-    public static class ImageUploadUrl {
-        private String key;
-        private String uploadUrl;
-        private Instant expiresAt;
-    }
-
-    @Getter
-    @Builder
     public static class CompletedImages {
         private List<ImageInfo> images;
     }
