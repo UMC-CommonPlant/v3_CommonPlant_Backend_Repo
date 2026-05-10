@@ -3,6 +3,7 @@ package com.commonplant.garden.s3.service;
 import com.commonplant.garden.common.config.S3Properties;
 import com.commonplant.garden.common.exception.BusinessException;
 import com.commonplant.garden.common.util.IdUtil;
+import com.commonplant.garden.place.service.PlaceService;
 import com.commonplant.garden.s3.dto.S3Response;
 import com.commonplant.garden.s3.entity.Image;
 import com.commonplant.garden.s3.entity.ImageRepository;
@@ -45,6 +46,7 @@ public class S3ServiceImpl implements S3Service {
     private final S3Properties s3Properties;
     private final ImageRepository imageRepository;
     private final UserRepository userRepository;
+    private final PlaceService placeService;
 
     @Override
     public S3Response.ImageInfo getImage(String nanoId, Long placeId, String key) {
@@ -130,9 +132,7 @@ public class S3ServiceImpl implements S3Service {
     }
 
     private List<Long> findAccessiblePlaceIds(String nanoId) {
-        // TODO: place 도메인 구현 후 nanoId 기준으로 사용자가 속한 place id 목록을 조회한다.
-        // 테스트용: 무조건 placeId 1 반환
-        return List.of(1L);
+        return placeService.getPlaceIdsByUser(nanoId);
     }
 
     private void validateImageCount(int imageCount) {
