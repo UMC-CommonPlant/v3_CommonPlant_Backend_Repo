@@ -35,6 +35,7 @@ public class SecurityConfig {
                         .requestMatchers("/auth/**").permitAll()
                         .requestMatchers(HttpMethod.POST,"/users").permitAll() // 사용자 토큰 발행 테스트
                         .requestMatchers("/health").permitAll()
+                        .requestMatchers("/api-docs/**", "/api-docs/json/**", "/swagger-ui/**", "/swagger-ui.html").permitAll() // Swagger UI 접근 허용
                         .anyRequest().authenticated()
                 )
 
