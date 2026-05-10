@@ -6,6 +6,7 @@ import com.commonplant.garden.plant.dto.PlantResponse;
 import com.commonplant.garden.plant.entity.Plant;
 import com.commonplant.garden.plant.entity.PlantRepository;
 import com.commonplant.garden.plant.exception.PlantErrorCode;
+import com.commonplant.garden.place.service.PlaceService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Slice;
@@ -24,6 +25,7 @@ public class PlantServiceImpl implements PlantService {
     private static final int MAX_PAGE_SIZE = 50;
 
     private final PlantRepository plantRepository;
+    private final PlaceService placeService;
 
     @Override
     @Transactional
@@ -116,10 +118,6 @@ public class PlantServiceImpl implements PlantService {
 
     private Long resolveAccessiblePlaceId(String nanoId, Long placeId) {
         validatePlaceAccess(nanoId, placeId);
-
-        // TODO: place 도메인 구현 후 nanoId가 속해 있는 place list를 반환한다.
-        // TODO: 사용자가 place를 선택한 후, 해당 place 접근 권한 검증을 호출한다.
-        // TODO: place의 id를 반환한다.
         return placeId;
     }
 
@@ -163,9 +161,7 @@ public class PlantServiceImpl implements PlantService {
     }
 
     private List<Long> findAccessiblePlaceIds(String nanoId) {
-        // TODO: place 도메인 구현 후 nanoId 기준으로 사용자가 속한 place id 목록을 조회한다.
-        // 테스트용: 무조건 placeId 1 반환
-        return List.of(1L);
+        return placeService.getPlaceIdsByUser(nanoId);
     }
 
     private String findPlantMemo(Long plantId) {
@@ -174,8 +170,7 @@ public class PlantServiceImpl implements PlantService {
     }
 
     private String findPlaceName(Long placeId) {
-        // TODO: place 도메인 구현 후 placeId 기준 장소 이름을 조회한다.
-        return null;
+        return placeService.getPlaceNameById(placeId);
     }
 
     private int normalizePage(int page) {
