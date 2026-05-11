@@ -19,15 +19,9 @@ public class AuthController {
 
     private final AuthService authService;
 
-    @PostMapping("/google")
-    public ResponseEntity<JsonResponse> googleLogin(@Valid @RequestBody AuthRequest.GoogleLogin request) {
-        AuthResponse response = authService.googleLogin(request);
-        return ResponseEntity.ok(new JsonResponse(true, 200, "google login success", response));
-    }
-
-    @PostMapping("/kakao")
-    public ResponseEntity<JsonResponse> kakaoLogin(@Valid @RequestBody AuthRequest.KakaoLogin request) {
-        AuthResponse response = authService.kakaoLogin(request);
-        return ResponseEntity.ok(new JsonResponse(true, 200, "kakao login success", response));
+    @PostMapping("/login")
+    public ResponseEntity<JsonResponse> login(@Valid @RequestBody AuthRequest.SocialLogin request) {
+        AuthResponse response = authService.login(request);
+        return ResponseEntity.ok(new JsonResponse(true, 200, "login success", response));
     }
 }

@@ -31,21 +31,21 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     @Transactional
-    public AuthResponse googleLogin(AuthRequest.GoogleLogin request) {
-        SocialUserInfo socialUser = googleTokenVerifier.verify(request.getIdToken());
-        log.info("google Login verify : " + socialUser);
-        return loginOrRegister(socialUser, Provider.GOOGLE);
-    }
-
-    @Override
-    @Transactional
-    public AuthResponse kakaoLogin(AuthRequest.KakaoLogin request) {
-        SocialUserInfo socialUser = kakaoTokenVerifier.verify(request.getAccessToken());
-        log.info("kakao Login verify : " + socialUser);
-        return loginOrRegister(socialUser, Provider.KAKAO);
+    public AuthResponse login(AuthRequest.SocialLogin request) {
+        SocialUserInfo socialUser = verifySocialToken(request.getProvider(), request.getToken());
+        log.info("{} login verify: providerId={}", request.getProvider(), socialUser.getProviderId());
+        return loginOrRegister(socialUser, request.getProvider());
     }
 
     // ── helper ──────────────────────────────────────────────────────
+
+    private SocialUserInfo verifySocialToken(Provider provider, String token) {
+        return switch (provider) {
+            case GOOGLE -> googleTokenVerifier.verify(token);
+            case KAKAO  -> kakaoTokenVerifier.verify(token);
+            default     -> throw new BusinessException(AuthErrorCode.UNSUPPORTED_PROVIDER);
+        };
+    }
 
     private AuthResponse loginOrRegister(SocialUserInfo socialUser, Provider provider) {
         boolean isNewUser = false;
