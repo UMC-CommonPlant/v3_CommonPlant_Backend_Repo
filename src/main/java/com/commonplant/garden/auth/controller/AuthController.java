@@ -24,4 +24,10 @@ public class AuthController {
         AuthResponse response = authService.googleLogin(request);
         return ResponseEntity.ok(new JsonResponse(true, 200, "google login success", response));
     }
+
+    @PostMapping("/kakao")
+    public ResponseEntity<JsonResponse> kakaoLogin(@Valid @RequestBody AuthRequest.KakaoLogin request) {
+        AuthResponse response = authService.kakaoLogin(request);
+        return ResponseEntity.ok(new JsonResponse(true, 200, "kakao login success", response));
+    }
 }

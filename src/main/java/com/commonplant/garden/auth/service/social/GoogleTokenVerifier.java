@@ -20,7 +20,7 @@ import java.util.Map;
 @Component
 public class GoogleTokenVerifier {
 
-    @Value("${oauth2.google.token-info-url}")
+    @Value("${social.google.token-info-url}")
     private String tokenInfoUrl;
 
     private final RestClient restClient = RestClient.create();

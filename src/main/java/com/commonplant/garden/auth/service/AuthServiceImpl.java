@@ -4,6 +4,7 @@ import com.commonplant.garden.auth.dto.request.AuthRequest;
 import com.commonplant.garden.auth.dto.response.AuthResponse;
 import com.commonplant.garden.auth.exception.AuthErrorCode;
 import com.commonplant.garden.auth.service.social.GoogleTokenVerifier;
+import com.commonplant.garden.auth.service.social.KakaoTokenVerifier;
 import com.commonplant.garden.auth.service.social.SocialUserInfo;
 import com.commonplant.garden.common.exception.BusinessException;
 import com.commonplant.garden.common.util.IdUtil;
@@ -24,6 +25,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class AuthServiceImpl implements AuthService {
 
     private final GoogleTokenVerifier googleTokenVerifier;
+    private final KakaoTokenVerifier kakaoTokenVerifier;
     private final UserRepository userRepository;
     private final JwtUtil jwtUtil;
 
@@ -32,9 +34,23 @@ public class AuthServiceImpl implements AuthService {
     public AuthResponse googleLogin(AuthRequest.GoogleLogin request) {
         SocialUserInfo socialUser = googleTokenVerifier.verify(request.getIdToken());
         log.info("google Login verify : " + socialUser);
+        return loginOrRegister(socialUser, Provider.GOOGLE);
+    }
+
+    @Override
+    @Transactional
+    public AuthResponse kakaoLogin(AuthRequest.KakaoLogin request) {
+        SocialUserInfo socialUser = kakaoTokenVerifier.verify(request.getAccessToken());
+        log.info("kakao Login verify : " + socialUser);
+        return loginOrRegister(socialUser, Provider.KAKAO);
+    }
+
+    // ── helper ──────────────────────────────────────────────────────
+
+    private AuthResponse loginOrRegister(SocialUserInfo socialUser, Provider provider) {
         boolean isNewUser = false;
         User user = userRepository
-                .findByProviderAndProviderIdAndStatus(Provider.GOOGLE, socialUser.getProviderId(), UserStatus.ACTIVE)
+                .findByProviderAndProviderIdAndStatus(provider, socialUser.getProviderId(), UserStatus.ACTIVE)
                 .orElse(null);
 
         if (user == null) {
@@ -45,7 +61,7 @@ public class AuthServiceImpl implements AuthService {
                     .nanoId(IdUtil.generateNanoId())
                     .name(socialUser.getNickname())
                     .email(socialUser.getEmail())
-                    .provider(Provider.GOOGLE)
+                    .provider(provider)
                     .providerId(socialUser.getProviderId())
                     .imgUrl(socialUser.getProfileImageUrl())
                     .introduction(null)

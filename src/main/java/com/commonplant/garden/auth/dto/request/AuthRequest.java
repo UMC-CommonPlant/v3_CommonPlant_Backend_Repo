@@ -12,4 +12,11 @@ public class AuthRequest {
         @NotBlank
         private String idToken;
     }
+
+    @Getter
+    @NoArgsConstructor
+    public static class KakaoLogin {
+        @NotBlank
+        private String accessToken;
+    }
 }

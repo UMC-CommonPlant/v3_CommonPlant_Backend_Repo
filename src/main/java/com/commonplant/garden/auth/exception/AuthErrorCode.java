@@ -15,8 +15,9 @@ public enum AuthErrorCode implements ErrorCode {
     UNSUPPORTED_PROVIDER(HttpStatus.BAD_REQUEST,  "A005", "지원하지 않는 소셜 제공자입니다."),
     USER_NOT_FOUND      (HttpStatus.NOT_FOUND,    "A006", "사용자를 찾을 수 없습니다."),
     DUPLICATE_EMAIL     (HttpStatus.CONFLICT,      "A007", "이미 다른 소셜 계정으로 가입된 이메일입니다."),
-    UNAUTHORIZED        (HttpStatus.UNAUTHORIZED,  "A008", "인증이 필요합니다."),
-    ACCESS_DENIED       (HttpStatus.FORBIDDEN,     "A009", "접근 권한이 없습니다.")
+    KAKAO_EMAIL_REQUIRED(HttpStatus.BAD_REQUEST,   "A008", "카카오 계정의 이메일 제공에 동의해주세요."),
+    UNAUTHORIZED        (HttpStatus.UNAUTHORIZED,  "A009", "인증이 필요합니다."),
+    ACCESS_DENIED       (HttpStatus.FORBIDDEN,     "A010", "접근 권한이 없습니다.")
     ;
 
     private final HttpStatus status;
