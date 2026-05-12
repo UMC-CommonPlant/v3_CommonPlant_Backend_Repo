@@ -6,6 +6,7 @@ import com.commonplant.garden.plant.dto.PlantResponse;
 import com.commonplant.garden.plant.entity.Plant;
 import com.commonplant.garden.plant.entity.PlantRepository;
 import com.commonplant.garden.plant.exception.PlantErrorCode;
+import com.commonplant.garden.place.entity.Place;
 import com.commonplant.garden.place.service.PlaceService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
@@ -96,6 +97,17 @@ public class PlantServiceImpl implements PlantService {
                         .toList())
                 .hasNext(plants.hasNext())
                 .build();
+    }
+
+    @Override
+    public List<PlantResponse.PlantSummary> getPlantsByPlace(String nanoId, String placeCode) {
+        Place place = placeService.getPlaceByCode(placeCode);
+        validatePlaceAccess(nanoId, place.getPlaceIdx());
+
+        return plantRepository.findAllByPlaceIdOrderByPlantIdxDesc(place.getPlaceIdx())
+                .stream()
+                .map(PlantResponse.PlantSummary::from)
+                .toList();
     }
 
     @Override
