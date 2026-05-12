@@ -41,36 +41,32 @@ public class S3Controller {
     )
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "이미지 조회 성공"),
-            @ApiResponse(responseCode = "403", description = "이미지 접근 권한 없음"),
+            @ApiResponse(responseCode = "401", description = "인증 실패"),
             @ApiResponse(responseCode = "404", description = "이미지 없음")
     })
     @GetMapping("/images")
     public ResponseEntity<JsonResponse> getImage(
             @Parameter(hidden = true) @AuthenticationPrincipal String nanoId,
-            @Parameter(description = "이미지가 속한 장소 ID", example = "1")
-            @RequestParam("placeId") Long placeId,
-            @Parameter(description = "이미지 key", example = "images/1/user-nano-id/sample.png")
+            @Parameter(description = "이미지 key", example = "images/user-nano-id/sample.png")
             @RequestParam("key") String key
     ) {
-        S3Response.ImageInfo response = s3Service.getImage(nanoId, placeId, key);
+        S3Response.ImageInfo response = s3Service.getImage(nanoId, key);
         return ResponseEntity.ok(new JsonResponse(true, 200, "getImage", response));
     }
 
     @Operation(summary = "이미지 삭제", description = "이미지 key에 해당하는 S3 객체와 이미지 메타데이터를 삭제합니다.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "이미지 삭제 성공"),
-            @ApiResponse(responseCode = "403", description = "이미지 접근 권한 없음"),
+            @ApiResponse(responseCode = "401", description = "인증 실패"),
             @ApiResponse(responseCode = "404", description = "이미지 없음")
     })
     @DeleteMapping("/images")
     public ResponseEntity<JsonResponse> deleteImage(
             @Parameter(hidden = true) @AuthenticationPrincipal String nanoId,
-            @Parameter(description = "이미지가 속한 장소 ID", example = "1")
-            @RequestParam("placeId") Long placeId,
-            @Parameter(description = "이미지 key", example = "images/1/user-nano-id/sample.png")
+            @Parameter(description = "이미지 key", example = "images/user-nano-id/sample.png")
             @RequestParam("key") String key
     ) {
-        s3Service.deleteImage(nanoId, placeId, key);
+        s3Service.deleteImage(nanoId, key);
         return ResponseEntity.ok(new JsonResponse(true, 200, "deleteImage", null));
     }
 
@@ -81,15 +77,13 @@ public class S3Controller {
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "이미지 수정 성공"),
             @ApiResponse(responseCode = "400", description = "이미지 파일 형식/크기 오류"),
-            @ApiResponse(responseCode = "403", description = "이미지 접근 권한 없음"),
+            @ApiResponse(responseCode = "401", description = "인증 실패"),
             @ApiResponse(responseCode = "404", description = "이미지 없음")
     })
     @PutMapping(value = "/images", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<JsonResponse> updateImage(
             @Parameter(hidden = true) @AuthenticationPrincipal String nanoId,
-            @Parameter(description = "이미지가 속한 장소 ID", example = "1")
-            @RequestParam("placeId") Long placeId,
-            @Parameter(description = "교체 대상 이미지 key", example = "images/1/user-nano-id/sample.png")
+            @Parameter(description = "교체 대상 이미지 key", example = "images/user-nano-id/sample.png")
             @RequestParam("key") String key,
             @Parameter(
                     description = "교체할 이미지 파일",
@@ -98,24 +92,21 @@ public class S3Controller {
             )
             @RequestPart("image") MultipartFile image
     ) {
-        S3Response.ImageInfo response = s3Service.updateImage(nanoId, placeId, key, image);
+        S3Response.ImageInfo response = s3Service.updateImage(nanoId, key, image);
         return ResponseEntity.ok(new JsonResponse(true, 200, "updateImage", response));
     }
 
     @Operation(
             summary = "이미지 다중 업로드",
-            description = "장소에 이미지 파일을 1개 이상, 최대 5개까지 업로드합니다. 허용 타입은 jpeg, png, webp이고 파일당 최대 크기는 10MB입니다."
+            description = "이미지 파일을 1개 이상, 최대 5개까지 업로드합니다. 허용 타입은 jpeg, png, webp이고 파일당 최대 크기는 10MB입니다."
     )
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "이미지 업로드 성공"),
-            @ApiResponse(responseCode = "400", description = "이미지 개수/파일 형식/크기 오류"),
-            @ApiResponse(responseCode = "404", description = "장소 없음")
+            @ApiResponse(responseCode = "400", description = "이미지 개수/파일 형식/크기 오류")
     })
     @PostMapping(value = "/images", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<JsonResponse> uploadImages(
             @Parameter(hidden = true) @AuthenticationPrincipal String nanoId,
-            @Parameter(description = "이미지를 업로드할 장소 ID", example = "1")
-            @RequestParam("placeId") Long placeId,
             @Parameter(
                     description = "업로드할 이미지 파일 목록(1~5개)",
                     content = @Content(mediaType = MediaType.MULTIPART_FORM_DATA_VALUE,
@@ -123,7 +114,7 @@ public class S3Controller {
             )
             @RequestPart("images") List<MultipartFile> images
     ) {
-        S3Response.CompletedImages response = s3Service.uploadImages(nanoId, placeId, images);
+        S3Response.CompletedImages response = s3Service.uploadImages(nanoId, images);
         return ResponseEntity.ok(new JsonResponse(true, 200, "uploadImages", response));
     }
 }
