@@ -47,13 +47,20 @@ public class S3ServiceImpl implements S3Service {
     private final UserRepository userRepository;
 
     @Override
+    public String getImageUrl(String key) {
+        Image image = findImageByKey(key);
+        Duration expiresIn = Duration.ofMinutes(s3Properties.presignedUrlExpirationMinutes());
+        return createPresignedGetUrl(image.getImageKey(), expiresIn);
+    }
+
+    @Override
     public S3Response.ImageInfo getImage(String nanoId, String key) {
         findActiveUser(nanoId);
         Image image = findImageByKey(key);
         Duration expiresIn = Duration.ofMinutes(s3Properties.presignedUrlExpirationMinutes());
         Instant expiresAt = Instant.now().plus(expiresIn);
 
-        return S3Response.ImageInfo.of(image, createPresignedGetUrl(image.getImageKey(), expiresIn), expiresAt);
+        return S3Response.ImageInfo.of(image, getImageUrl(image.getImageKey()), expiresAt);
     }
 
     @Override

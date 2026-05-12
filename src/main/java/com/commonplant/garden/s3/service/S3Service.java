@@ -6,6 +6,8 @@ import org.springframework.web.multipart.MultipartFile;
 import java.util.List;
 
 public interface S3Service {
+    String getImageUrl(String key);
+
     S3Response.ImageInfo getImage(String nanoId, String key);
 
     void deleteImage(String nanoId, String key);
