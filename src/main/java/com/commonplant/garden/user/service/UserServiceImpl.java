@@ -12,6 +12,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+import java.util.stream.Collectors;
+
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -59,10 +62,35 @@ public class UserServiceImpl implements UserService {
         findActiveUserByNanoId(nanoId).deactivate();
     }
 
-    // ── helper ──────────────────────────────────────────────────────
-
+    // ── private helper ──────────────────────────────────────────────────────
+    /** Active 사용자 조회 로직 - nanoId */
     public User findActiveUserByNanoId(String nanoId) {
         return userRepository.findByNanoIdAndStatus(nanoId, UserStatus.ACTIVE)
                 .orElseThrow(() -> new BusinessException(UserErrorCode.USER_NOT_FOUND));
+    }
+
+    // ── public helper ──────────────────────────────────────────────────────
+    /** Active 사용자 조회 로직 - nanoId */
+    public UserResponse searchActiveUserByNanoId(String nanoId) {
+        User user = userRepository.findByNanoIdAndStatus(nanoId, UserStatus.ACTIVE)
+                .orElseThrow(() -> new BusinessException(UserErrorCode.USER_NOT_FOUND));
+        return UserResponse.from(user);
+    }
+
+    /** Active 사용자 조회 로직 - username */
+    public List<UserResponse> searchActiveUsersByUsername(String keyword) {
+        if (keyword == null || keyword.isBlank()) {
+            throw new BusinessException(UserErrorCode.INVALID_SEARCH_KEYWORD);
+        }
+
+        List<User> users = userRepository.findByUsernameContainingAndStatus(keyword, UserStatus.ACTIVE);
+
+        if (users.isEmpty()) {
+            throw new BusinessException(UserErrorCode.USER_NOT_FOUND);
+        }
+
+        return users.stream()
+                .map(UserResponse::from)
+                .collect(Collectors.toList());
     }
 }
