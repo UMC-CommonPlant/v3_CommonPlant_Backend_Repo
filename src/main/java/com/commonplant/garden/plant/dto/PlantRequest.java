@@ -39,6 +39,9 @@ public class PlantRequest {
     @NoArgsConstructor
     @Schema(description = "식물 수정 요청")
     public static class UpdateRequest {
+        @Schema(description = "현재 대표 이미지 key. 새 파일이 있으면 값과 무관하게 교체하고, 새 파일이 없을 때 기존 key와 같으면 유지하며, 없거나 null이면 삭제합니다.", example = "images/user-nano-id/monstera.png", nullable = true)
+        private String imageKey;
+
         @Schema(description = "식물 애칭", example = "새 몬스테라")
         private String nickname;
 

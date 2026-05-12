@@ -76,6 +76,7 @@ public class PlantController {
                                       "message": "getPlantEditInfo",
                                       "result": {
                                         "imageKey": "images/user-nano-id/monstera.png",
+                                        "imageUrl": "https://bucket.s3.ap-northeast-2.amazonaws.com/images/user-nano-id/monstera.png?X-Amz-Algorithm=...",
                                         "nickname": "거실 몬스테라",
                                         "lastWateredDate": "2026-05-12"
                                       },
@@ -106,6 +107,7 @@ public class PlantController {
                                       "message": "updatePlant",
                                       "result": {
                                         "imageKey": "images/user-nano-id/monstera-updated.png",
+                                        "imageUrl": "https://bucket.s3.ap-northeast-2.amazonaws.com/images/user-nano-id/monstera-updated.png?X-Amz-Algorithm=...",
                                         "nickname": "새 몬스테라",
                                         "lastWateredDate": "2026-05-13"
                                       },
@@ -127,6 +129,7 @@ public class PlantController {
                             schema = @Schema(implementation = PlantRequest.UpdateRequest.class),
                             examples = @ExampleObject(value = """
                                     {
+                                      "imageKey": "images/user-nano-id/monstera.png",
                                       "nickname": "새 몬스테라",
                                       "lastWateredDate": "2026-05-13"
                                     }
@@ -159,7 +162,7 @@ public class PlantController {
                                         "scientificNameEn": "Monstera deliciosa",
                                         "registeredAt": "2026-05-12T19:30:00",
                                         "lastWateredDate": "2026-05-12",
-                                        "imageKey": "images/user-nano-id/monstera.png",
+                                        "imageUrl": "https://bucket.s3.ap-northeast-2.amazonaws.com/images/user-nano-id/monstera.png?X-Amz-Algorithm=...",
                                         "memo": "새 잎이 올라옴",
                                         "placeName": "거실 정원",
                                         "plantInfo": "햇빛이 잘 드는 거실에서 키우는 몬스테라입니다."
@@ -194,7 +197,7 @@ public class PlantController {
                                           {
                                             "plantId": 1,
                                             "nickname": "거실 몬스테라",
-                                            "representativeImageKey": "images/user-nano-id/monstera.png"
+                                            "representativeImageUrl": "https://bucket.s3.ap-northeast-2.amazonaws.com/images/user-nano-id/monstera.png?X-Amz-Algorithm=..."
                                           }
                                         ],
                                         "hasNext": false

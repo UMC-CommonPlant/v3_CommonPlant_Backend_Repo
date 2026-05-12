@@ -60,14 +60,14 @@ public class PlantResponse {
         @Schema(description = "식물 애칭", example = "거실 몬스테라")
         private String nickname;
 
-        @Schema(description = "대표 이미지 key", example = "images/user-nano-id/monstera.png")
-        private String representativeImageKey;
+        @Schema(description = "대표 이미지 URL", example = "https://bucket.s3.ap-northeast-2.amazonaws.com/images/user-nano-id/monstera.png?X-Amz-Algorithm=...")
+        private String representativeImageUrl;
 
-        public static PlantSummary from(Plant plant) {
+        public static PlantSummary of(Plant plant, String representativeImageUrl) {
             return PlantSummary.builder()
                     .plantId(plant.getPlantIdx())
                     .nickname(plant.getNickname())
-                    .representativeImageKey(plant.getImageKey())
+                    .representativeImageUrl(representativeImageUrl)
                     .build();
         }
     }
@@ -91,8 +91,8 @@ public class PlantResponse {
         @Schema(description = "마지막으로 물을 준 날짜", example = "2026-05-12")
         private LocalDate lastWateredDate;
 
-        @Schema(description = "대표 이미지 key", example = "images/user-nano-id/monstera.png")
-        private String imageKey;
+        @Schema(description = "대표 이미지 URL", example = "https://bucket.s3.ap-northeast-2.amazonaws.com/images/user-nano-id/monstera.png?X-Amz-Algorithm=...")
+        private String imageUrl;
 
         @Schema(description = "대표/최근 메모", example = "새 잎이 올라옴", nullable = true)
         private String memo;
@@ -103,14 +103,14 @@ public class PlantResponse {
         @Schema(description = "식물 설명", example = "햇빛이 잘 드는 거실에서 키우는 몬스테라입니다.")
         private String plantInfo;
 
-        public static DetailResponse of(Plant plant, String memo, String placeName) {
+        public static DetailResponse of(Plant plant, String memo, String placeName, String imageUrl) {
             return DetailResponse.builder()
                     .plantId(plant.getPlantIdx())
                     .scientificNameKo(plant.getScientificNameKo())
                     .scientificNameEn(plant.getScientificNameEn())
                     .registeredAt(plant.getCreatedAt())
                     .lastWateredDate(plant.getLastWateredDate())
-                    .imageKey(plant.getImageKey())
+                    .imageUrl(imageUrl)
                     .memo(memo)
                     .placeName(placeName)
                     .plantInfo(plant.getDescription())
@@ -122,8 +122,11 @@ public class PlantResponse {
     @Builder
     @Schema(description = "식물 수정 정보 응답")
     public static class EditInfoResponse {
-        @Schema(description = "대표 이미지 key", example = "images/user-nano-id/monstera.png")
+        @Schema(description = "대표 이미지 key", example = "images/user-nano-id/monstera.png", nullable = true)
         private String imageKey;
+
+        @Schema(description = "대표 이미지 URL", example = "https://bucket.s3.ap-northeast-2.amazonaws.com/images/user-nano-id/monstera.png?X-Amz-Algorithm=...")
+        private String imageUrl;
 
         @Schema(description = "식물 애칭", example = "거실 몬스테라")
         private String nickname;
@@ -131,9 +134,10 @@ public class PlantResponse {
         @Schema(description = "마지막으로 물을 준 날짜", example = "2026-05-12")
         private LocalDate lastWateredDate;
 
-        public static EditInfoResponse from(Plant plant) {
+        public static EditInfoResponse of(Plant plant, String imageUrl) {
             return EditInfoResponse.builder()
                     .imageKey(plant.getImageKey())
+                    .imageUrl(imageUrl)
                     .nickname(plant.getNickname())
                     .lastWateredDate(plant.getLastWateredDate())
                     .build();
