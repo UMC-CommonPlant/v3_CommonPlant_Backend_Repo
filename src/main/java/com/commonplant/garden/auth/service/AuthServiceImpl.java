@@ -2,6 +2,7 @@ package com.commonplant.garden.auth.service;
 
 import com.commonplant.garden.auth.dto.request.AuthRequest;
 import com.commonplant.garden.auth.dto.response.AuthResponse;
+import com.commonplant.garden.auth.dto.response.LoginResponse;
 import com.commonplant.garden.auth.exception.AuthErrorCode;
 import com.commonplant.garden.auth.service.social.GoogleTokenVerifier;
 import com.commonplant.garden.auth.service.social.KakaoTokenVerifier;
@@ -29,12 +30,86 @@ public class AuthServiceImpl implements AuthService {
     private final UserRepository userRepository;
     private final JwtUtil jwtUtil;
 
+    /**
+     * 소셜 로그인
+     * - 기존 유저: JWT 토큰 즉시 발급
+     * - 신규 유저: signupToken 발급 (유저 미생성) → /auth/register 로 이동
+     */
     @Override
     @Transactional
-    public AuthResponse login(AuthRequest.SocialLogin request) {
+    public LoginResponse login(AuthRequest.SocialLogin request) {
         SocialUserInfo socialUser = verifySocialToken(request.getProvider(), request.getToken());
         log.info("{} login verify: providerId={}", request.getProvider(), socialUser.getProviderId());
-        return loginOrRegister(socialUser, request.getProvider());
+
+        return userRepository
+                .findByProviderAndProviderIdAndStatus(request.getProvider(), socialUser.getProviderId(), UserStatus.ACTIVE)
+                .map(user -> {
+                    String accessToken  = jwtUtil.generateAccessToken(user.getNanoId());
+                    String refreshToken = jwtUtil.generateRefreshToken(user.getNanoId());
+                    user.updateRefreshToken(refreshToken);
+                    return LoginResponse.builder()
+                            .isNewUser(false)
+                            .accessToken(accessToken)
+                            .refreshToken(refreshToken)
+                            .build();
+                })
+                .orElseGet(() -> {
+                    if (userRepository.existsByEmail(socialUser.getEmail())) {
+                        throw new BusinessException(AuthErrorCode.DUPLICATE_EMAIL);
+                    }
+                    String signupToken = jwtUtil.generateSignupToken(
+                            socialUser.getProviderId(),
+                            request.getProvider().name(),
+                            socialUser.getEmail()
+                    );
+                    return LoginResponse.builder()
+                            .isNewUser(true)
+                            .signupToken(signupToken)
+                            .suggestedName(socialUser.getNickname())
+                            .suggestedImgUrl(socialUser.getProfileImageUrl())
+                            .build();
+                });
+    }
+
+    /**
+     * 회원가입 완료
+     * signupToken 검증 후 사용자 입력 정보로 유저 생성 → JWT 발급
+     */
+    @Override
+    @Transactional
+    public AuthResponse register(AuthRequest.Register request) {
+        JwtUtil.SignupTokenInfo info = jwtUtil.getSignupInfo(request.getSignupToken());
+        String providerId = info.providerId();
+        Provider provider = Provider.from(info.provider());
+        String email      = info.email();
+
+        // signupToken 재사용 방지: 이미 가입된 경우 차단
+        if (userRepository.existsByProviderAndProviderId(provider, providerId)) {
+            throw new BusinessException(AuthErrorCode.ALREADY_REGISTERED);
+        }
+        if (userRepository.existsByEmail(email)) {
+            throw new BusinessException(AuthErrorCode.DUPLICATE_EMAIL);
+        }
+
+        User user = User.builder()
+                .nanoId(IdUtil.generateNanoId())
+                .name(request.getName())
+                .email(email)
+                .provider(provider)
+                .providerId(providerId)
+                .imgUrl(request.getImgUrl())
+                .introduction(request.getIntroduction())
+                .build();
+        userRepository.save(user);
+
+        String accessToken  = jwtUtil.generateAccessToken(user.getNanoId());
+        String refreshToken = jwtUtil.generateRefreshToken(user.getNanoId());
+        user.updateRefreshToken(refreshToken);
+
+        return AuthResponse.builder()
+                .accessToken(accessToken)
+                .refreshToken(refreshToken)
+                .build();
     }
 
     // ── helper ──────────────────────────────────────────────────────
@@ -45,39 +120,5 @@ public class AuthServiceImpl implements AuthService {
             case KAKAO  -> kakaoTokenVerifier.verify(token);
             default     -> throw new BusinessException(AuthErrorCode.UNSUPPORTED_PROVIDER);
         };
-    }
-
-    private AuthResponse loginOrRegister(SocialUserInfo socialUser, Provider provider) {
-        boolean isNewUser = false;
-        User user = userRepository
-                .findByProviderAndProviderIdAndStatus(provider, socialUser.getProviderId(), UserStatus.ACTIVE)
-                .orElse(null);
-
-        if (user == null) {
-            if (userRepository.existsByEmail(socialUser.getEmail())) {
-                throw new BusinessException(AuthErrorCode.DUPLICATE_EMAIL);
-            }
-            user = User.builder()
-                    .nanoId(IdUtil.generateNanoId())
-                    .name(socialUser.getNickname())
-                    .email(socialUser.getEmail())
-                    .provider(provider)
-                    .providerId(socialUser.getProviderId())
-                    .imgUrl(socialUser.getProfileImageUrl())
-                    .introduction(null)
-                    .build();
-            userRepository.save(user);
-            isNewUser = true;
-        }
-
-        String accessToken = jwtUtil.generateAccessToken(user.getNanoId());
-        String refreshToken = jwtUtil.generateRefreshToken(user.getNanoId());
-        user.updateRefreshToken(refreshToken);
-
-        return AuthResponse.builder()
-                .accessToken(accessToken)
-                .refreshToken(refreshToken)
-                .isNewUser(isNewUser)
-                .build();
     }
 }

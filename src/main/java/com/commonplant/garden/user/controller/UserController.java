@@ -20,12 +20,14 @@ public class UserController {
     private final UserService userService;
 
     /* 소셜로그인 구현 전 테스트 메서드 */
+    /*
     @PostMapping
     public ResponseEntity<JsonResponse> createUser(@Valid @RequestBody UserRequest.CreateRequest request) {
         UserResponse response = userService.createUser(request);
         String accessToken = jwtUtil.generateAccessToken(response.getId());
         return ResponseEntity.status(HttpStatus.CREATED).body(new JsonResponse(true, 200, "createUser", accessToken));
     }
+     */
 
     @GetMapping
     public ResponseEntity<JsonResponse> getUserByNanoId(@AuthenticationPrincipal String nanoId) {
