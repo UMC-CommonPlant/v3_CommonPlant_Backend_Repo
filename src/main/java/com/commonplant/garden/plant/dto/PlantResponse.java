@@ -1,6 +1,7 @@
 package com.commonplant.garden.plant.dto;
 
 import com.commonplant.garden.plant.entity.Plant;
+import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Builder;
 import lombok.Getter;
 
@@ -12,7 +13,9 @@ public class PlantResponse {
 
     @Getter
     @Builder
+    @Schema(description = "식물 생성 응답")
     public static class CreateResponse {
+        @Schema(description = "생성된 식물 ID", example = "1")
         private Long plantId;
 
         public static CreateResponse from(Plant plant) {
@@ -24,7 +27,9 @@ public class PlantResponse {
 
     @Getter
     @Builder
+    @Schema(description = "식물 삭제 응답")
     public static class DeleteResponse {
+        @Schema(description = "삭제된 식물 ID", example = "1")
         private Long plantId;
 
         public static DeleteResponse of(Long plantId) {
@@ -36,16 +41,26 @@ public class PlantResponse {
 
     @Getter
     @Builder
+    @Schema(description = "식물 목록 응답")
     public static class PlantListResponse {
+        @Schema(description = "식물 목록")
         private List<PlantSummary> plants;
+
+        @Schema(description = "다음 페이지 존재 여부", example = "false")
         private boolean hasNext;
     }
 
     @Getter
     @Builder
+    @Schema(description = "식물 요약 정보")
     public static class PlantSummary {
+        @Schema(description = "식물 ID", example = "1")
         private Long plantId;
+
+        @Schema(description = "식물 애칭", example = "거실 몬스테라")
         private String nickname;
+
+        @Schema(description = "대표 이미지 key", example = "images/user-nano-id/monstera.png")
         private String representativeImageKey;
 
         public static PlantSummary from(Plant plant) {
@@ -59,15 +74,33 @@ public class PlantResponse {
 
     @Getter
     @Builder
+    @Schema(description = "식물 상세 응답")
     public static class DetailResponse {
+        @Schema(description = "식물 ID", example = "1")
         private Long plantId;
+
+        @Schema(description = "식물 한글 학명", example = "몬스테라")
         private String scientificNameKo;
+
+        @Schema(description = "식물 영문 학명", example = "Monstera deliciosa")
         private String scientificNameEn;
+
+        @Schema(description = "등록 일시", example = "2026-05-12T19:30:00")
         private LocalDateTime registeredAt;
+
+        @Schema(description = "마지막으로 물을 준 날짜", example = "2026-05-12")
         private LocalDate lastWateredDate;
+
+        @Schema(description = "대표 이미지 key", example = "images/user-nano-id/monstera.png")
         private String imageKey;
+
+        @Schema(description = "대표/최근 메모", example = "새 잎이 올라옴", nullable = true)
         private String memo;
+
+        @Schema(description = "장소 이름", example = "거실 정원")
         private String placeName;
+
+        @Schema(description = "식물 설명", example = "햇빛이 잘 드는 거실에서 키우는 몬스테라입니다.")
         private String plantInfo;
 
         public static DetailResponse of(Plant plant, String memo, String placeName) {
@@ -87,9 +120,15 @@ public class PlantResponse {
 
     @Getter
     @Builder
+    @Schema(description = "식물 수정 정보 응답")
     public static class EditInfoResponse {
+        @Schema(description = "대표 이미지 key", example = "images/user-nano-id/monstera.png")
         private String imageKey;
+
+        @Schema(description = "식물 애칭", example = "거실 몬스테라")
         private String nickname;
+
+        @Schema(description = "마지막으로 물을 준 날짜", example = "2026-05-12")
         private LocalDate lastWateredDate;
 
         public static EditInfoResponse from(Plant plant) {

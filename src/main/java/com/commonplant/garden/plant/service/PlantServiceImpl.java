@@ -8,12 +8,14 @@ import com.commonplant.garden.plant.entity.PlantRepository;
 import com.commonplant.garden.plant.exception.PlantErrorCode;
 import com.commonplant.garden.place.entity.Place;
 import com.commonplant.garden.place.service.PlaceService;
+import com.commonplant.garden.s3.service.S3Service;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Slice;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -27,6 +29,7 @@ public class PlantServiceImpl implements PlantService {
 
     private final PlantRepository plantRepository;
     private final PlaceService placeService;
+    private final S3Service s3Service;
 
     @Override
     @Transactional
@@ -53,15 +56,17 @@ public class PlantServiceImpl implements PlantService {
             String nanoId,
             Long placeId,
             Long plantId,
-            PlantRequest.UpdateRequest request
+            PlantRequest.UpdateRequest request,
+            MultipartFile image
     ) {
-        validateUpdateRequest(request);
+        validateUpdateRequest(request, image);
         Plant plant = findAccessiblePlant(nanoId, placeId, plantId);
+        String imageKey = updateImageIfPresent(nanoId, plant.getImageKey(), image);
 
         plant.updateProfile(
-                request.getImageKey(),
-                request.getNickname(),
-                request.getLastWateredDate()
+                imageKey,
+                request == null ? null : request.getNickname(),
+                request == null ? null : request.getLastWateredDate()
         );
 
         return PlantResponse.EditInfoResponse.from(plant);
@@ -112,8 +117,13 @@ public class PlantServiceImpl implements PlantService {
 
     @Override
     @Transactional
-    public PlantResponse.CreateResponse createPlant(String nanoId, PlantRequest.CreateRequest request) {
+    public PlantResponse.CreateResponse createPlant(
+            String nanoId,
+            PlantRequest.CreateRequest request,
+            MultipartFile image
+    ) {
         Long placeId = resolveAccessiblePlaceId(nanoId, request.getPlaceId());
+        String imageKey = uploadImageIfPresent(nanoId, image);
 
         Plant plant = Plant.builder()
                 .placeId(placeId)
@@ -121,7 +131,7 @@ public class PlantServiceImpl implements PlantService {
                 .scientificNameEn(request.getScientificNameEn())
                 .nickname(request.getNickname())
                 .lastWateredDate(request.getLastWateredDate())
-                .imageKey(request.getImageKey())
+                .imageKey(imageKey)
                 .description(request.getDescription())
                 .build();
 
@@ -145,22 +155,34 @@ public class PlantServiceImpl implements PlantService {
         }
     }
 
-    private void validateUpdateRequest(PlantRequest.UpdateRequest request) {
-        if (request == null || (
-                request.getImageKey() == null
-                        && request.getNickname() == null
+    private void validateUpdateRequest(PlantRequest.UpdateRequest request, MultipartFile image) {
+        if ((request == null || (
+                request.getNickname() == null
                         && request.getLastWateredDate() == null
-        )) {
+        )) && (image == null || image.isEmpty())) {
             throw new BusinessException(PlantErrorCode.NO_FIELDS_TO_UPDATE);
         }
 
-        if (request.getNickname() != null && !StringUtils.hasText(request.getNickname())) {
+        if (request != null && request.getNickname() != null && !StringUtils.hasText(request.getNickname())) {
             throw new BusinessException(PlantErrorCode.INVALID_NICKNAME);
         }
+    }
 
-        if (request.getImageKey() != null && !StringUtils.hasText(request.getImageKey())) {
-            throw new BusinessException(PlantErrorCode.INVALID_IMAGE_KEY);
+    private String uploadImageIfPresent(String nanoId, MultipartFile image) {
+        if (image == null || image.isEmpty()) {
+            return null;
         }
+        return s3Service.uploadImage(nanoId, image).getKey();
+    }
+
+    private String updateImageIfPresent(String nanoId, String existingImageKey, MultipartFile image) {
+        if (image == null || image.isEmpty()) {
+            return null;
+        }
+        if (!StringUtils.hasText(existingImageKey)) {
+            return s3Service.uploadImage(nanoId, image).getKey();
+        }
+        return s3Service.updateImage(nanoId, existingImageKey, image).getKey();
     }
 
     private Plant findAccessiblePlant(String nanoId, Long placeId, Long plantId) {
