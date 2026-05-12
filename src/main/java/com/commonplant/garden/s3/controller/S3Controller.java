@@ -1,72 +1,129 @@
 package com.commonplant.garden.s3.controller;
 
 import com.commonplant.garden.common.dto.JsonResponse;
-import com.commonplant.garden.s3.dto.S3Request;
 import com.commonplant.garden.s3.dto.S3Response;
 import com.commonplant.garden.s3.service.S3Service;
-import jakarta.validation.Valid;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.ArraySchema;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.util.List;
 
 @RequiredArgsConstructor
 @RestController
 @RequestMapping("/s3")
+@Tag(name = "Image", description = "S3 이미지 업로드/조회/수정/삭제 API")
 public class S3Controller {
 
     private final S3Service s3Service;
 
-    @GetMapping("/images/{imageId}")
+    @Operation(
+            summary = "이미지 다운로드 URL 조회",
+            description = "이미지 key로 접근 가능한 presigned download URL을 조회합니다."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "이미지 조회 성공"),
+            @ApiResponse(responseCode = "403", description = "이미지 접근 권한 없음"),
+            @ApiResponse(responseCode = "404", description = "이미지 없음")
+    })
+    @GetMapping("/images")
     public ResponseEntity<JsonResponse> getImage(
-            @AuthenticationPrincipal String nanoId,
-            @PathVariable("imageId") Long imageId
+            @Parameter(hidden = true) @AuthenticationPrincipal String nanoId,
+            @Parameter(description = "이미지가 속한 장소 ID", example = "1")
+            @RequestParam("placeId") Long placeId,
+            @Parameter(description = "이미지 key", example = "images/1/user-nano-id/sample.png")
+            @RequestParam("key") String key
     ) {
-        S3Response.ImageInfo response = s3Service.getImage(nanoId, imageId);
+        S3Response.ImageInfo response = s3Service.getImage(nanoId, placeId, key);
         return ResponseEntity.ok(new JsonResponse(true, 200, "getImage", response));
     }
 
-    @DeleteMapping("/images/{imageId}")
+    @Operation(summary = "이미지 삭제", description = "이미지 key에 해당하는 S3 객체와 이미지 메타데이터를 삭제합니다.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "이미지 삭제 성공"),
+            @ApiResponse(responseCode = "403", description = "이미지 접근 권한 없음"),
+            @ApiResponse(responseCode = "404", description = "이미지 없음")
+    })
+    @DeleteMapping("/images")
     public ResponseEntity<JsonResponse> deleteImage(
-            @AuthenticationPrincipal String nanoId,
-            @PathVariable("imageId") Long imageId
+            @Parameter(hidden = true) @AuthenticationPrincipal String nanoId,
+            @Parameter(description = "이미지가 속한 장소 ID", example = "1")
+            @RequestParam("placeId") Long placeId,
+            @Parameter(description = "이미지 key", example = "images/1/user-nano-id/sample.png")
+            @RequestParam("key") String key
     ) {
-        s3Service.deleteImage(nanoId, imageId);
+        s3Service.deleteImage(nanoId, placeId, key);
         return ResponseEntity.ok(new JsonResponse(true, 200, "deleteImage", null));
     }
 
-    @PutMapping("/images/{imageId}")
+    @Operation(
+            summary = "이미지 수정",
+            description = "기존 이미지 key에 해당하는 이미지를 새 이미지 파일로 교체합니다. 허용 타입은 jpeg, png, webp이고 최대 크기는 10MB입니다."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "이미지 수정 성공"),
+            @ApiResponse(responseCode = "400", description = "이미지 파일 형식/크기 오류"),
+            @ApiResponse(responseCode = "403", description = "이미지 접근 권한 없음"),
+            @ApiResponse(responseCode = "404", description = "이미지 없음")
+    })
+    @PutMapping(value = "/images", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<JsonResponse> updateImage(
-            @AuthenticationPrincipal String nanoId,
-            @PathVariable("imageId") Long imageId,
-            @Valid @RequestBody S3Request.UpdateImage request
+            @Parameter(hidden = true) @AuthenticationPrincipal String nanoId,
+            @Parameter(description = "이미지가 속한 장소 ID", example = "1")
+            @RequestParam("placeId") Long placeId,
+            @Parameter(description = "교체 대상 이미지 key", example = "images/1/user-nano-id/sample.png")
+            @RequestParam("key") String key,
+            @Parameter(
+                    description = "교체할 이미지 파일",
+                    content = @Content(mediaType = MediaType.MULTIPART_FORM_DATA_VALUE,
+                            schema = @Schema(type = "string", format = "binary"))
+            )
+            @RequestPart("image") MultipartFile image
     ) {
-        S3Response.ImageInfo response = s3Service.updateImage(nanoId, imageId, request);
+        S3Response.ImageInfo response = s3Service.updateImage(nanoId, placeId, key, image);
         return ResponseEntity.ok(new JsonResponse(true, 200, "updateImage", response));
     }
 
-    @PostMapping("/images/presigned-urls")
-    public ResponseEntity<JsonResponse> createImageUploadUrls(
-            @AuthenticationPrincipal String nanoId,
-            @Valid @RequestBody S3Request.CreateImageUploadUrls request
+    @Operation(
+            summary = "이미지 다중 업로드",
+            description = "장소에 이미지 파일을 1개 이상, 최대 5개까지 업로드합니다. 허용 타입은 jpeg, png, webp이고 파일당 최대 크기는 10MB입니다."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "이미지 업로드 성공"),
+            @ApiResponse(responseCode = "400", description = "이미지 개수/파일 형식/크기 오류"),
+            @ApiResponse(responseCode = "404", description = "장소 없음")
+    })
+    @PostMapping(value = "/images", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<JsonResponse> uploadImages(
+            @Parameter(hidden = true) @AuthenticationPrincipal String nanoId,
+            @Parameter(description = "이미지를 업로드할 장소 ID", example = "1")
+            @RequestParam("placeId") Long placeId,
+            @Parameter(
+                    description = "업로드할 이미지 파일 목록(1~5개)",
+                    content = @Content(mediaType = MediaType.MULTIPART_FORM_DATA_VALUE,
+                            array = @ArraySchema(schema = @Schema(type = "string", format = "binary")))
+            )
+            @RequestPart("images") List<MultipartFile> images
     ) {
-        S3Response.ImageUploadUrls response = s3Service.createImageUploadUrls(nanoId, request);
-        return ResponseEntity.ok(new JsonResponse(true, 200, "createImageUploadUrls", response));
-    }
-
-    @PostMapping("/images/complete")
-    public ResponseEntity<JsonResponse> completeImageUpload(
-            @AuthenticationPrincipal String nanoId,
-            @Valid @RequestBody S3Request.CompleteImageUpload request
-    ) {
-        S3Response.CompletedImages response = s3Service.completeImageUpload(nanoId, request);
-        return ResponseEntity.ok(new JsonResponse(true, 200, "completeImageUpload", response));
+        S3Response.CompletedImages response = s3Service.uploadImages(nanoId, placeId, images);
+        return ResponseEntity.ok(new JsonResponse(true, 200, "uploadImages", response));
     }
 }

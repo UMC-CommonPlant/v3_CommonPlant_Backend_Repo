@@ -3,7 +3,7 @@ package com.commonplant.garden.s3.service;
 import com.commonplant.garden.common.config.S3Properties;
 import com.commonplant.garden.common.exception.BusinessException;
 import com.commonplant.garden.common.util.IdUtil;
-import com.commonplant.garden.s3.dto.S3Request;
+import com.commonplant.garden.place.service.PlaceService;
 import com.commonplant.garden.s3.dto.S3Response;
 import com.commonplant.garden.s3.entity.Image;
 import com.commonplant.garden.s3.entity.ImageRepository;
@@ -16,17 +16,18 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
+import org.springframework.web.multipart.MultipartFile;
+import software.amazon.awssdk.core.exception.SdkException;
+import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
-import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
-import software.amazon.awssdk.services.s3.model.HeadObjectResponse;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
-import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
-import software.amazon.awssdk.services.s3.presigner.model.PutObjectPresignRequest;
 
+import java.io.IOException;
+import java.io.InputStream;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
@@ -45,10 +46,11 @@ public class S3ServiceImpl implements S3Service {
     private final S3Properties s3Properties;
     private final ImageRepository imageRepository;
     private final UserRepository userRepository;
+    private final PlaceService placeService;
 
     @Override
-    public S3Response.ImageInfo getImage(String nanoId, Long imageId) {
-        Image image = findImageByIdAndOwner(imageId, nanoId);
+    public S3Response.ImageInfo getImage(String nanoId, Long placeId, String key) {
+        Image image = findAccessibleImage(nanoId, placeId, key);
         Duration expiresIn = Duration.ofMinutes(s3Properties.presignedUrlExpirationMinutes());
         Instant expiresAt = Instant.now().plus(expiresIn);
 
@@ -57,57 +59,37 @@ public class S3ServiceImpl implements S3Service {
 
     @Override
     @Transactional
-    public void deleteImage(String nanoId, Long imageId) {
-        Image image = findImageByIdAndOwner(imageId, nanoId);
+    public void deleteImage(String nanoId, Long placeId, String key) {
+        Image image = findAccessibleImage(nanoId, placeId, key);
         deleteObject(image.getImageKey());
         imageRepository.delete(image);
     }
 
     @Override
     @Transactional
-    public S3Response.ImageInfo updateImage(String nanoId, Long imageId, S3Request.UpdateImage request) {
-        Image image = findImageByIdAndOwner(imageId, nanoId);
-        validateImageKey(nanoId, request.getKey());
-        if (imageRepository.existsByImageKey(request.getKey())) {
-            throw new BusinessException(S3ErrorCode.INVALID_IMAGE_KEY);
-        }
-
-        HeadObjectResponse object = getUploadedObject(request.getKey());
-        validateUploadedImage(object);
+    public S3Response.ImageInfo updateImage(String nanoId, Long placeId, String key, MultipartFile imageFile) {
+        Image image = findAccessibleImage(nanoId, placeId, key);
+        validateMultipartImage(imageFile);
 
         String oldImageKey = image.getImageKey();
-        image.update(request.getKey(), object.contentType(), object.contentLength());
+        String newImageKey = createImageKey(placeId, nanoId, imageFile.getOriginalFilename());
+        putImageObject(newImageKey, imageFile);
+
+        image.update(newImageKey, normalizeContentType(imageFile.getContentType()), imageFile.getSize());
         deleteObject(oldImageKey);
 
         return S3Response.ImageInfo.from(image);
     }
 
     @Override
-    public S3Response.ImageUploadUrls createImageUploadUrls(String nanoId, S3Request.CreateImageUploadUrls request) {
-        User user = findActiveUser(nanoId);
-        validateImageCount(request.getFiles().size());
-
-        Duration expiresIn = Duration.ofMinutes(s3Properties.presignedUrlExpirationMinutes());
-        Instant expiresAt = Instant.now().plus(expiresIn);
-
-        List<S3Response.ImageUploadUrl> files = request.getFiles().stream()
-                .map(file -> createImageUploadUrl(user, file, expiresIn, expiresAt))
-                .toList();
-
-        return S3Response.ImageUploadUrls.builder()
-                .files(files)
-                .expiresInMinutes((int) s3Properties.presignedUrlExpirationMinutes())
-                .build();
-    }
-
-    @Override
     @Transactional
-    public S3Response.CompletedImages completeImageUpload(String nanoId, S3Request.CompleteImageUpload request) {
+    public S3Response.CompletedImages uploadImages(String nanoId, Long placeId, List<MultipartFile> imageFiles) {
         User user = findActiveUser(nanoId);
-        validateImageCount(request.getKeys().size());
+        validatePlaceAccess(nanoId, placeId);
+        validateImageCount(imageFiles == null ? 0 : imageFiles.size());
 
-        List<Image> images = request.getKeys().stream()
-                .map(key -> completeImageUpload(user, key))
+        List<Image> images = imageFiles.stream()
+                .map(imageFile -> uploadImage(user, placeId, imageFile))
                 .toList();
 
         return S3Response.CompletedImages.builder()
@@ -117,38 +99,18 @@ public class S3ServiceImpl implements S3Service {
                 .build();
     }
 
-    private S3Response.ImageUploadUrl createImageUploadUrl(
-            User user,
-            S3Request.ImageFile file,
-            Duration expiresIn,
-            Instant expiresAt
-    ) {
-        validateRequestedImage(file.getContentType());
+    private Image uploadImage(User user, Long placeId, MultipartFile imageFile) {
+        validateMultipartImage(imageFile);
 
-        String imageKey = createImageKey(user.getNanoId(), file.getFileName());
-        String uploadUrl = createPresignedPutUrl(imageKey, file.getContentType(), expiresIn);
-
-        return S3Response.ImageUploadUrl.builder()
-                .key(imageKey)
-                .uploadUrl(uploadUrl)
-                .expiresAt(expiresAt)
-                .build();
-    }
-
-    private Image completeImageUpload(User user, String imageKey) {
-        validateImageKey(user.getNanoId(), imageKey);
-        if (imageRepository.existsByImageKey(imageKey)) {
-            throw new BusinessException(S3ErrorCode.INVALID_IMAGE_KEY);
-        }
-
-        HeadObjectResponse object = getUploadedObject(imageKey);
-        validateUploadedImage(object);
+        String imageKey = createImageKey(placeId, user.getNanoId(), imageFile.getOriginalFilename());
+        putImageObject(imageKey, imageFile);
 
         return imageRepository.save(Image.builder()
                 .user(user)
+                .placeId(placeId)
                 .imageKey(imageKey)
-                .contentType(object.contentType())
-                .sizeBytes(object.contentLength())
+                .contentType(normalizeContentType(imageFile.getContentType()))
+                .sizeBytes(imageFile.getSize())
                 .build());
     }
 
@@ -157,9 +119,20 @@ public class S3ServiceImpl implements S3Service {
                 .orElseThrow(() -> new BusinessException(UserErrorCode.USER_NOT_FOUND));
     }
 
-    private Image findImageByIdAndOwner(Long imageId, String nanoId) {
-        return imageRepository.findByImageIdxAndUser_NanoIdAndUser_Status(imageId, nanoId, UserStatus.ACTIVE)
+    private Image findAccessibleImage(String nanoId, Long placeId, String imageKey) {
+        validatePlaceAccess(nanoId, placeId);
+        return imageRepository.findByImageKeyAndPlaceId(imageKey, placeId)
                 .orElseThrow(() -> new BusinessException(S3ErrorCode.IMAGE_NOT_FOUND));
+    }
+
+    private void validatePlaceAccess(String nanoId, Long placeId) {
+        if (!findAccessiblePlaceIds(nanoId).contains(placeId)) {
+            throw new BusinessException(S3ErrorCode.PLACE_ACCESS_DENIED);
+        }
+    }
+
+    private List<Long> findAccessiblePlaceIds(String nanoId) {
+        return placeService.getPlaceIdsByUser(nanoId);
     }
 
     private void validateImageCount(int imageCount) {
@@ -168,13 +141,13 @@ public class S3ServiceImpl implements S3Service {
         }
     }
 
-    private void validateRequestedImage(String contentType) {
-        validateImageContentType(contentType);
-    }
+    private void validateMultipartImage(MultipartFile imageFile) {
+        if (imageFile == null || imageFile.isEmpty()) {
+            throw new BusinessException(S3ErrorCode.INVALID_IMAGE_SIZE);
+        }
 
-    private void validateUploadedImage(HeadObjectResponse object) {
-        validateImageContentType(object.contentType());
-        if (object.contentLength() == null || object.contentLength() > s3Properties.image().maxSizeBytes()) {
+        validateImageContentType(imageFile.getContentType());
+        if (imageFile.getSize() > s3Properties.image().maxSizeBytes()) {
             throw new BusinessException(S3ErrorCode.INVALID_IMAGE_SIZE);
         }
     }
@@ -184,41 +157,6 @@ public class S3ServiceImpl implements S3Service {
         if (!s3Properties.image().allowedContentTypes().contains(normalizedContentType)) {
             throw new BusinessException(S3ErrorCode.INVALID_IMAGE_CONTENT_TYPE);
         }
-    }
-
-    private void validateImageKey(String nanoId, String imageKey) {
-        String expectedPrefix = IMAGE_KEY_PREFIX + "/" + nanoId + "/";
-        if (!StringUtils.hasText(imageKey) || !imageKey.startsWith(expectedPrefix) || imageKey.contains("..")) {
-            throw new BusinessException(S3ErrorCode.INVALID_IMAGE_KEY);
-        }
-    }
-
-    private HeadObjectResponse getUploadedObject(String imageKey) {
-        try {
-            return s3Client.headObject(HeadObjectRequest.builder()
-                    .bucket(s3Properties.bucket())
-                    .key(imageKey)
-                    .build());
-        } catch (NoSuchKeyException e) {
-            throw new BusinessException(S3ErrorCode.IMAGE_NOT_UPLOADED);
-        }
-    }
-
-    private String createPresignedPutUrl(String imageKey, String contentType, Duration expiresIn) {
-        PutObjectRequest putObjectRequest = PutObjectRequest.builder()
-                .bucket(s3Properties.bucket())
-                .key(imageKey)
-                .contentType(normalizeContentType(contentType))
-                .build();
-
-        PutObjectPresignRequest presignRequest = PutObjectPresignRequest.builder()
-                .signatureDuration(expiresIn)
-                .putObjectRequest(putObjectRequest)
-                .build();
-
-        return s3Presigner.presignPutObject(presignRequest)
-                .url()
-                .toString();
     }
 
     private String createPresignedGetUrl(String imageKey, Duration expiresIn) {
@@ -237,6 +175,24 @@ public class S3ServiceImpl implements S3Service {
                 .toString();
     }
 
+    private void putImageObject(String imageKey, MultipartFile imageFile) {
+        PutObjectRequest putObjectRequest = PutObjectRequest.builder()
+                .bucket(s3Properties.bucket())
+                .key(imageKey)
+                .contentType(normalizeContentType(imageFile.getContentType()))
+                .contentLength(imageFile.getSize())
+                .build();
+
+        try (InputStream inputStream = imageFile.getInputStream()) {
+            s3Client.putObject(
+                    putObjectRequest,
+                    RequestBody.fromInputStream(inputStream, imageFile.getSize())
+            );
+        } catch (IOException | SdkException e) {
+            throw new BusinessException(S3ErrorCode.IMAGE_UPLOAD_FAILED);
+        }
+    }
+
     private void deleteObject(String imageKey) {
         s3Client.deleteObject(DeleteObjectRequest.builder()
                 .bucket(s3Properties.bucket())
@@ -244,8 +200,8 @@ public class S3ServiceImpl implements S3Service {
                 .build());
     }
 
-    private String createImageKey(String nanoId, String fileName) {
-        return IMAGE_KEY_PREFIX + "/" + nanoId + "/" + IdUtil.generateUuid() + extractExtension(fileName);
+    private String createImageKey(Long placeId, String nanoId, String fileName) {
+        return IMAGE_KEY_PREFIX + "/" + placeId + "/" + nanoId + "/" + IdUtil.generateUuid() + extractExtension(fileName);
     }
 
     private String extractExtension(String fileName) {
