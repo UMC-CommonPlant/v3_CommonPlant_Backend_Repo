@@ -67,6 +67,10 @@ public class User extends BaseTime {
         if (imgUrl != null) this.imgUrl = imgUrl;
     }
 
+    public void updateRefreshToken(String refreshToken) {
+        this.refreshToken = refreshToken;
+    }
+
     public void deactivate() {
         this.status = UserStatus.DELETED;
     }

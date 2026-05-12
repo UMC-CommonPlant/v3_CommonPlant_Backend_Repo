@@ -16,6 +16,8 @@ jwt:
 social:
   google:
     token-info-url: https://oauth2.googleapis.com/tokeninfo
+  kakao:
+    user-info-url: https://kapi.kakao.com/v2/user/me
 
 s3:
   bucket: ${S3_BUCKET_NAME}
