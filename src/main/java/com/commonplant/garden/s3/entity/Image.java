@@ -30,7 +30,7 @@ public class Image extends BaseTime {
     @JoinColumn(name = "user_idx", nullable = false)
     private User user;
 
-    @Column(name = "place_idx", nullable = false)
+    @Column(name = "place_idx")
     private Long placeId;
 
     @Column(name = "image_key", nullable = false, unique = true)

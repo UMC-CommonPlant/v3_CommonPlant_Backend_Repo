@@ -22,10 +22,10 @@ public class S3Response {
     @Builder
     @Schema(description = "이미지 정보")
     public static class ImageInfo {
-        @Schema(description = "S3 이미지 key", example = "images/1/user-nano-id/sample.png")
+        @Schema(description = "S3 이미지 key", example = "images/user-nano-id/sample.png")
         private String key;
 
-        @Schema(description = "이미지가 속한 장소 ID", example = "1")
+        @Schema(description = "이미지가 연결된 장소 ID(없을 수 있음)", example = "1", nullable = true)
         private Long placeId;
 
         @Schema(description = "이미지 MIME 타입", example = "image/png")

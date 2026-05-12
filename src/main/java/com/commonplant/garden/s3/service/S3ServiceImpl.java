@@ -3,7 +3,6 @@ package com.commonplant.garden.s3.service;
 import com.commonplant.garden.common.config.S3Properties;
 import com.commonplant.garden.common.exception.BusinessException;
 import com.commonplant.garden.common.util.IdUtil;
-import com.commonplant.garden.place.service.PlaceService;
 import com.commonplant.garden.s3.dto.S3Response;
 import com.commonplant.garden.s3.entity.Image;
 import com.commonplant.garden.s3.entity.ImageRepository;
@@ -46,11 +45,11 @@ public class S3ServiceImpl implements S3Service {
     private final S3Properties s3Properties;
     private final ImageRepository imageRepository;
     private final UserRepository userRepository;
-    private final PlaceService placeService;
 
     @Override
-    public S3Response.ImageInfo getImage(String nanoId, Long placeId, String key) {
-        Image image = findAccessibleImage(nanoId, placeId, key);
+    public S3Response.ImageInfo getImage(String nanoId, String key) {
+        findActiveUser(nanoId);
+        Image image = findImageByKey(key);
         Duration expiresIn = Duration.ofMinutes(s3Properties.presignedUrlExpirationMinutes());
         Instant expiresAt = Instant.now().plus(expiresIn);
 
@@ -59,20 +58,22 @@ public class S3ServiceImpl implements S3Service {
 
     @Override
     @Transactional
-    public void deleteImage(String nanoId, Long placeId, String key) {
-        Image image = findAccessibleImage(nanoId, placeId, key);
+    public void deleteImage(String nanoId, String key) {
+        findActiveUser(nanoId);
+        Image image = findImageByKey(key);
         deleteObject(image.getImageKey());
         imageRepository.delete(image);
     }
 
     @Override
     @Transactional
-    public S3Response.ImageInfo updateImage(String nanoId, Long placeId, String key, MultipartFile imageFile) {
-        Image image = findAccessibleImage(nanoId, placeId, key);
+    public S3Response.ImageInfo updateImage(String nanoId, String key, MultipartFile imageFile) {
+        findActiveUser(nanoId);
+        Image image = findImageByKey(key);
         validateMultipartImage(imageFile);
 
         String oldImageKey = image.getImageKey();
-        String newImageKey = createImageKey(placeId, nanoId, imageFile.getOriginalFilename());
+        String newImageKey = createImageKey(nanoId, imageFile.getOriginalFilename());
         putImageObject(newImageKey, imageFile);
 
         image.update(newImageKey, normalizeContentType(imageFile.getContentType()), imageFile.getSize());
@@ -83,13 +84,12 @@ public class S3ServiceImpl implements S3Service {
 
     @Override
     @Transactional
-    public S3Response.CompletedImages uploadImages(String nanoId, Long placeId, List<MultipartFile> imageFiles) {
+    public S3Response.CompletedImages uploadImages(String nanoId, List<MultipartFile> imageFiles) {
         User user = findActiveUser(nanoId);
-        validatePlaceAccess(nanoId, placeId);
         validateImageCount(imageFiles == null ? 0 : imageFiles.size());
 
         List<Image> images = imageFiles.stream()
-                .map(imageFile -> uploadImage(user, placeId, imageFile))
+                .map(imageFile -> uploadImage(user, imageFile))
                 .toList();
 
         return S3Response.CompletedImages.builder()
@@ -99,15 +99,21 @@ public class S3ServiceImpl implements S3Service {
                 .build();
     }
 
-    private Image uploadImage(User user, Long placeId, MultipartFile imageFile) {
+    @Override
+    @Transactional
+    public S3Response.ImageInfo uploadImage(String nanoId, MultipartFile imageFile) {
+        User user = findActiveUser(nanoId);
+        return S3Response.ImageInfo.from(uploadImage(user, imageFile));
+    }
+
+    private Image uploadImage(User user, MultipartFile imageFile) {
         validateMultipartImage(imageFile);
 
-        String imageKey = createImageKey(placeId, user.getNanoId(), imageFile.getOriginalFilename());
+        String imageKey = createImageKey(user.getNanoId(), imageFile.getOriginalFilename());
         putImageObject(imageKey, imageFile);
 
         return imageRepository.save(Image.builder()
                 .user(user)
-                .placeId(placeId)
                 .imageKey(imageKey)
                 .contentType(normalizeContentType(imageFile.getContentType()))
                 .sizeBytes(imageFile.getSize())
@@ -119,20 +125,9 @@ public class S3ServiceImpl implements S3Service {
                 .orElseThrow(() -> new BusinessException(UserErrorCode.USER_NOT_FOUND));
     }
 
-    private Image findAccessibleImage(String nanoId, Long placeId, String imageKey) {
-        validatePlaceAccess(nanoId, placeId);
-        return imageRepository.findByImageKeyAndPlaceId(imageKey, placeId)
+    private Image findImageByKey(String imageKey) {
+        return imageRepository.findByImageKey(imageKey)
                 .orElseThrow(() -> new BusinessException(S3ErrorCode.IMAGE_NOT_FOUND));
-    }
-
-    private void validatePlaceAccess(String nanoId, Long placeId) {
-        if (!findAccessiblePlaceIds(nanoId).contains(placeId)) {
-            throw new BusinessException(S3ErrorCode.PLACE_ACCESS_DENIED);
-        }
-    }
-
-    private List<Long> findAccessiblePlaceIds(String nanoId) {
-        return placeService.getPlaceIdsByUser(nanoId);
     }
 
     private void validateImageCount(int imageCount) {
@@ -200,11 +195,15 @@ public class S3ServiceImpl implements S3Service {
                 .build());
     }
 
-    private String createImageKey(Long placeId, String nanoId, String fileName) {
-        return IMAGE_KEY_PREFIX + "/" + placeId + "/" + nanoId + "/" + IdUtil.generateUuid() + extractExtension(fileName);
+    private String createImageKey(String nanoId, String fileName) {
+        return IMAGE_KEY_PREFIX + "/" + nanoId + "/" + IdUtil.generateUuid() + extractExtension(fileName);
     }
 
     private String extractExtension(String fileName) {
+        if (!StringUtils.hasText(fileName)) {
+            return "";
+        }
+
         String trimmedFileName = fileName.trim();
         int dotIndex = trimmedFileName.lastIndexOf('.');
         if (dotIndex < 0 || dotIndex == trimmedFileName.length() - 1) {
