@@ -2,6 +2,7 @@ package com.commonplant.garden.plant.service;
 
 import com.commonplant.garden.plant.dto.PlantRequest;
 import com.commonplant.garden.plant.dto.PlantResponse;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -14,7 +15,8 @@ public interface PlantService {
             String nanoId,
             Long placeId,
             Long plantId,
-            PlantRequest.UpdateRequest request
+            PlantRequest.UpdateRequest request,
+            MultipartFile image
     );
 
     PlantResponse.DetailResponse getPlant(String nanoId, Long placeId, Long plantId);
@@ -23,5 +25,5 @@ public interface PlantService {
 
     List<PlantResponse.PlantSummary> getPlantsByPlace(String nanoId, String placeCode);
 
-    PlantResponse.CreateResponse createPlant(String nanoId, PlantRequest.CreateRequest request);
+    PlantResponse.CreateResponse createPlant(String nanoId, PlantRequest.CreateRequest request, MultipartFile image);
 }

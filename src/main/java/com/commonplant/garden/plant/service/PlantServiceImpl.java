@@ -8,12 +8,14 @@ import com.commonplant.garden.plant.entity.PlantRepository;
 import com.commonplant.garden.plant.exception.PlantErrorCode;
 import com.commonplant.garden.place.entity.Place;
 import com.commonplant.garden.place.service.PlaceService;
+import com.commonplant.garden.s3.service.S3Service;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Slice;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -27,6 +29,7 @@ public class PlantServiceImpl implements PlantService {
 
     private final PlantRepository plantRepository;
     private final PlaceService placeService;
+    private final S3Service s3Service;
 
     @Override
     @Transactional
@@ -44,7 +47,7 @@ public class PlantServiceImpl implements PlantService {
     @Override
     public PlantResponse.EditInfoResponse getPlantEditInfo(String nanoId, Long placeId, Long plantId) {
         Plant plant = findAccessiblePlant(nanoId, placeId, plantId);
-        return PlantResponse.EditInfoResponse.from(plant);
+        return PlantResponse.EditInfoResponse.of(plant, resolveImageUrl(plant.getImageKey()));
     }
 
     @Override
@@ -53,18 +56,20 @@ public class PlantServiceImpl implements PlantService {
             String nanoId,
             Long placeId,
             Long plantId,
-            PlantRequest.UpdateRequest request
+            PlantRequest.UpdateRequest request,
+            MultipartFile image
     ) {
-        validateUpdateRequest(request);
         Plant plant = findAccessiblePlant(nanoId, placeId, plantId);
+        validateUpdateRequest(plant, request, image);
+        String imageKey = resolveUpdatedImageKey(nanoId, plant.getImageKey(), request, image);
 
         plant.updateProfile(
-                request.getImageKey(),
-                request.getNickname(),
-                request.getLastWateredDate()
+                request == null ? null : request.getNickname(),
+                request == null ? null : request.getLastWateredDate()
         );
+        plant.updateImageKey(imageKey);
 
-        return PlantResponse.EditInfoResponse.from(plant);
+        return PlantResponse.EditInfoResponse.of(plant, resolveImageUrl(plant.getImageKey()));
     }
 
     @Override
@@ -73,7 +78,7 @@ public class PlantServiceImpl implements PlantService {
 
         String memo = findPlantMemo(plant.getPlantIdx());
         String placeName = findPlaceName(placeId);
-        return PlantResponse.DetailResponse.of(plant, memo, placeName);
+        return PlantResponse.DetailResponse.of(plant, memo, placeName, resolveImageUrl(plant.getImageKey()));
     }
 
     @Override
@@ -93,7 +98,7 @@ public class PlantServiceImpl implements PlantService {
 
         return PlantResponse.PlantListResponse.builder()
                 .plants(plants.getContent().stream()
-                        .map(PlantResponse.PlantSummary::from)
+                        .map(plant -> PlantResponse.PlantSummary.of(plant, resolveImageUrl(plant.getImageKey())))
                         .toList())
                 .hasNext(plants.hasNext())
                 .build();
@@ -106,14 +111,19 @@ public class PlantServiceImpl implements PlantService {
 
         return plantRepository.findAllByPlaceIdOrderByPlantIdxDesc(place.getPlaceIdx())
                 .stream()
-                .map(PlantResponse.PlantSummary::from)
+                .map(plant -> PlantResponse.PlantSummary.of(plant, resolveImageUrl(plant.getImageKey())))
                 .toList();
     }
 
     @Override
     @Transactional
-    public PlantResponse.CreateResponse createPlant(String nanoId, PlantRequest.CreateRequest request) {
+    public PlantResponse.CreateResponse createPlant(
+            String nanoId,
+            PlantRequest.CreateRequest request,
+            MultipartFile image
+    ) {
         Long placeId = resolveAccessiblePlaceId(nanoId, request.getPlaceId());
+        String imageKey = uploadImageIfPresent(nanoId, image);
 
         Plant plant = Plant.builder()
                 .placeId(placeId)
@@ -121,7 +131,7 @@ public class PlantServiceImpl implements PlantService {
                 .scientificNameEn(request.getScientificNameEn())
                 .nickname(request.getNickname())
                 .lastWateredDate(request.getLastWateredDate())
-                .imageKey(request.getImageKey())
+                .imageKey(imageKey)
                 .description(request.getDescription())
                 .build();
 
@@ -145,21 +155,78 @@ public class PlantServiceImpl implements PlantService {
         }
     }
 
-    private void validateUpdateRequest(PlantRequest.UpdateRequest request) {
-        if (request == null || (
-                request.getImageKey() == null
-                        && request.getNickname() == null
-                        && request.getLastWateredDate() == null
-        )) {
+    private void validateUpdateRequest(Plant plant, PlantRequest.UpdateRequest request, MultipartFile image) {
+        if (!StringUtils.hasText(plant.getImageKey()) && request == null && isEmptyFile(image)) {
             throw new BusinessException(PlantErrorCode.NO_FIELDS_TO_UPDATE);
         }
 
-        if (request.getNickname() != null && !StringUtils.hasText(request.getNickname())) {
+        if (request != null && request.getNickname() != null && !StringUtils.hasText(request.getNickname())) {
             throw new BusinessException(PlantErrorCode.INVALID_NICKNAME);
         }
+    }
 
-        if (request.getImageKey() != null && !StringUtils.hasText(request.getImageKey())) {
+    private String uploadImageIfPresent(String nanoId, MultipartFile image) {
+        if (image == null || image.isEmpty()) {
+            return null;
+        }
+        return s3Service.uploadImage(nanoId, image).getKey();
+    }
+
+    private String resolveUpdatedImageKey(
+            String nanoId,
+            String existingImageKey,
+            PlantRequest.UpdateRequest request,
+            MultipartFile image
+    ) {
+        if (hasFile(image)) {
+            if (!StringUtils.hasText(existingImageKey)) {
+                return s3Service.uploadImage(nanoId, image).getKey();
+            }
+            return s3Service.updateImage(nanoId, existingImageKey, image).getKey();
+        }
+
+        if (!StringUtils.hasText(existingImageKey)) {
+            validateAbsentImageKey(request);
+            return null;
+        }
+
+        if (hasSameImageKey(request, existingImageKey)) {
+            return existingImageKey;
+        }
+
+        if (hasRequestedImageKey(request)) {
             throw new BusinessException(PlantErrorCode.INVALID_IMAGE_KEY);
+        }
+
+        deleteImageIfPresent(nanoId, existingImageKey);
+        return null;
+    }
+
+    private boolean hasFile(MultipartFile image) {
+        return image != null && !image.isEmpty();
+    }
+
+    private boolean isEmptyFile(MultipartFile image) {
+        return image == null || image.isEmpty();
+    }
+
+    private boolean hasRequestedImageKey(PlantRequest.UpdateRequest request) {
+        return request != null && StringUtils.hasText(request.getImageKey());
+    }
+
+    private boolean hasSameImageKey(PlantRequest.UpdateRequest request, String existingImageKey) {
+        return hasRequestedImageKey(request) && request.getImageKey().trim().equals(existingImageKey);
+    }
+
+    private void validateAbsentImageKey(PlantRequest.UpdateRequest request) {
+        if (hasRequestedImageKey(request)) {
+            throw new BusinessException(PlantErrorCode.INVALID_IMAGE_KEY);
+        }
+    }
+
+    private void deleteImageIfPresent(String nanoId, String imageKey) {
+        if (StringUtils.hasText(imageKey)) {
+            s3Service.deleteImage(nanoId, imageKey);
         }
     }
 
@@ -183,6 +250,13 @@ public class PlantServiceImpl implements PlantService {
 
     private String findPlaceName(Long placeId) {
         return placeService.getPlaceNameById(placeId);
+    }
+
+    private String resolveImageUrl(String imageKey) {
+        if (!StringUtils.hasText(imageKey)) {
+            return null;
+        }
+        return s3Service.getImageUrl(imageKey);
     }
 
     private int normalizePage(int page) {
