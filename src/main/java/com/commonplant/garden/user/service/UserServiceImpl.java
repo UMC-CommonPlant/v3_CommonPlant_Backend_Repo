@@ -83,7 +83,7 @@ public class UserServiceImpl implements UserService {
             throw new BusinessException(UserErrorCode.INVALID_SEARCH_KEYWORD);
         }
 
-        List<User> users = userRepository.findByUsernameContainingAndStatus(keyword, UserStatus.ACTIVE);
+        List<User> users = userRepository.findByNameContainingAndStatus(keyword, UserStatus.ACTIVE);
 
         if (users.isEmpty()) {
             throw new BusinessException(UserErrorCode.USER_NOT_FOUND);
