@@ -2,7 +2,6 @@ package com.commonplant.garden.auth.service;
 
 import com.commonplant.garden.auth.dto.request.AuthRequest;
 import com.commonplant.garden.auth.dto.response.AuthResponse;
-import com.commonplant.garden.auth.dto.response.LoginResponse;
 import com.commonplant.garden.auth.exception.AuthErrorCode;
 import com.commonplant.garden.auth.service.social.GoogleTokenVerifier;
 import com.commonplant.garden.auth.service.social.KakaoTokenVerifier;
@@ -37,7 +36,7 @@ public class AuthServiceImpl implements AuthService {
      */
     @Override
     @Transactional
-    public LoginResponse login(AuthRequest.SocialLogin request) {
+    public AuthResponse login(AuthRequest.Login request) {
         SocialUserInfo socialUser = verifySocialToken(request.getProvider(), request.getToken());
         log.info("{} login verify: providerId={}", request.getProvider(), socialUser.getProviderId());
 
@@ -47,7 +46,7 @@ public class AuthServiceImpl implements AuthService {
                     String accessToken  = jwtUtil.generateAccessToken(user.getNanoId());
                     String refreshToken = jwtUtil.generateRefreshToken(user.getNanoId());
                     user.updateRefreshToken(refreshToken);
-                    return LoginResponse.builder()
+                    return AuthResponse.builder()
                             .isNewUser(false)
                             .accessToken(accessToken)
                             .refreshToken(refreshToken)
@@ -62,10 +61,10 @@ public class AuthServiceImpl implements AuthService {
                             request.getProvider().name(),
                             socialUser.getEmail()
                     );
-                    return LoginResponse.builder()
+                    return AuthResponse.builder()
                             .isNewUser(true)
                             .signupToken(signupToken)
-                            .suggestedName(socialUser.getNickname())
+                            .suggestedName(socialUser.getName())
                             .suggestedImgUrl(socialUser.getProfileImageUrl())
                             .build();
                 });
@@ -107,6 +106,7 @@ public class AuthServiceImpl implements AuthService {
         user.updateRefreshToken(refreshToken);
 
         return AuthResponse.builder()
+                .isNewUser(true)
                 .accessToken(accessToken)
                 .refreshToken(refreshToken)
                 .build();

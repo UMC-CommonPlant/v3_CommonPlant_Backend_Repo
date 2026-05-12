@@ -10,7 +10,7 @@ public class AuthRequest {
 
     @Getter
     @NoArgsConstructor
-    public static class SocialLogin {
+    public static class Login {
         @NotNull
         private Provider provider;
 
