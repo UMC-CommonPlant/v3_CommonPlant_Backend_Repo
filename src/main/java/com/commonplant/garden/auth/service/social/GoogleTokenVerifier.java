@@ -52,7 +52,7 @@ public class GoogleTokenVerifier {
         return SocialUserInfo.builder()
                 .providerId((String) claims.get("sub"))
                 .email((String) claims.get("email"))
-                .nickname((String) claims.getOrDefault("name", ""))
+                .name((String) claims.getOrDefault("name", ""))
                 .profileImageUrl((String) claims.getOrDefault("picture", null))
                 .build();
     }
