@@ -1,8 +1,6 @@
 spring:
   application:
     name: garden
-  profiles:
-    active: local # 기본값을 local로 설정
 
 server:
   servlet:
@@ -45,3 +43,12 @@ springdoc:
       enabled: true
   cache:
     disabled: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, info   # health 엔드포인트만 공개
+  endpoint:
+    health:
+      show-details: never        # DB 정보 등 민감 정보 숨김 (운영 권장)
