@@ -238,6 +238,15 @@ public class PlaceServiceImpl implements PlaceService {
     }
 
     /*
+        placeIdx 기준으로 place의 주소를 조회
+    */
+    @Override
+    public String getPlaceAddressById(Long placeId) {
+        return placeRepository.findAddressById(placeId)
+                .orElseThrow(() -> new BusinessException(PlaceErrorCode.PLACE_NOT_FOUND));
+    }
+
+    /*
         placeIdx 기준으로 place를 조회
      */
     @Override
