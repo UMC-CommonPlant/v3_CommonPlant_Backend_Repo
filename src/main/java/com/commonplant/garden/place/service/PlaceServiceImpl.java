@@ -11,12 +11,14 @@ import com.commonplant.garden.place.entity.PlaceRepository;
 import com.commonplant.garden.place.exception.PlaceErrorCode;
 // import com.commonplant.garden.plant.entity.Plant;
 // import com.commonplant.garden.plant.entity.PlantRepository;
+import com.commonplant.garden.s3.service.S3Service;
 import com.commonplant.garden.user.entity.User;
 import com.commonplant.garden.user.service.UserServiceImpl;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.ArrayList;
@@ -36,6 +38,7 @@ public class PlaceServiceImpl implements PlaceService {
     // private final MemoRepository memoRepository;
 
     private final UserServiceImpl userService;
+    private final S3Service s3Service;
 
     @Override
     @Transactional
@@ -46,8 +49,7 @@ public class PlaceServiceImpl implements PlaceService {
 
         // [TODO]: Live Weather API
 
-        // [TODO]: Image handling
-        String imgUrl = null;
+        String imageKey = uploadImageIfPresent(nanoId, image);
 
         // [TODO]: Place Info: gridX, gridY
         Place place = Place.builder()
@@ -56,7 +58,7 @@ public class PlaceServiceImpl implements PlaceService {
                 .code(newCode)
                 .gridX("126")
                 .gridY("37")
-                .imgUrl(imgUrl)
+                .imgUrl(imageKey)
                 .owner(user)
                 .build();
 
@@ -88,6 +90,7 @@ public class PlaceServiceImpl implements PlaceService {
                 .address(place.getAddress())
                 .code(place.getCode())
                 .isOwner(false)
+                .imgUrl(resolveImageUrl(place.getImgUrl()))
                 .userList(userList)
                 .build();
 
@@ -111,7 +114,7 @@ public class PlaceServiceImpl implements PlaceService {
             // [TODO]: 장소에 속한 식물 수 반환
             // String plant = plantRepository.countPlantsByPlace(place);
             String plant = "0";
-            placeList.add(0, new PlaceDto.getPlaceListRes(place, member, plant));
+            placeList.add(0, new PlaceDto.getPlaceListRes(place, member, plant, resolveImageUrl(place.getImgUrl())));
         }
         return placeList;
     }
@@ -136,7 +139,7 @@ public class PlaceServiceImpl implements PlaceService {
             PlaceDto.getPlaceBelongUser belongUser = new PlaceDto.getPlaceBelongUser(
                     b.getPlace().getCode(),
                     b.getPlace().getName(),
-                    b.getPlace().getImgUrl());
+                    resolveImageUrl(b.getPlace().getImgUrl()));
             belongList.add(belongUser);
         }
         return belongList;
@@ -151,10 +154,10 @@ public class PlaceServiceImpl implements PlaceService {
         Place place = getPlaceByCode(code);
         belongUserOnPlace(user.getNanoId(), code);
 
-        // [TODO]: Place Info: gridX, gridY
+        validateUpdateRequest(place, req, image);
+        String imageKey = resolveUpdatedImageKey(nanoId, place.getImgUrl(), req, image);
 
-        // [TODO]: Image handling
-        String imgUrl = null;
+        // [TODO]: Place Info: gridX, gridY
 
         Place newPlaceInfo = Place.builder()
                 .name(req.getName())
@@ -162,7 +165,7 @@ public class PlaceServiceImpl implements PlaceService {
                 .code(code)
                 .gridX("126")
                 .gridY("37")
-                .imgUrl(imgUrl)
+                .imgUrl(imageKey)
                 .owner(place.getOwner())
                 .build();
         newPlaceInfo.setPlaceIdx(place.getPlaceIdx());
@@ -172,7 +175,7 @@ public class PlaceServiceImpl implements PlaceService {
                 newPlaceInfo.getCode(),
                 newPlaceInfo.getName(),
                 newPlaceInfo.getAddress(),
-                newPlaceInfo.getImgUrl()
+                resolveImageUrl(newPlaceInfo.getImgUrl())
         );
     }
 
@@ -205,6 +208,7 @@ public class PlaceServiceImpl implements PlaceService {
             plantRepository.deleteById(plantIdx);
         }
          */
+        deleteImageIfPresent(nanoId, place.getImgUrl());
         placeRepository.deleteById(placeIdx);
     }
 
@@ -273,5 +277,83 @@ public class PlaceServiceImpl implements PlaceService {
             code = RandomStringUtils.random(6, 33, 125, true, false);
         } while (placeRepository.existsByCode(code));
         return code;
+    }
+
+    private String uploadImageIfPresent(String nanoId, MultipartFile image) {
+        if (image == null || image.isEmpty()) {
+            return null;
+        }
+        return s3Service.uploadImage(nanoId, image).getKey();
+    }
+
+    private String resolveUpdatedImageKey(
+            String nanoId,
+            String existingImageKey,
+            PlaceDto.updatePlaceReq request,
+            MultipartFile image
+    ) {
+        if (hasFile(image)) {
+            if (!StringUtils.hasText(existingImageKey)) {
+                return s3Service.uploadImage(nanoId, image).getKey();
+            }
+            return s3Service.updateImage(nanoId, existingImageKey, image).getKey();
+        }
+
+        if (!StringUtils.hasText(existingImageKey)) {
+            validateAbsentImageKey(request);
+            return null;
+        }
+
+        if (hasSameImageKey(request, existingImageKey)) {
+            return existingImageKey;
+        }
+
+        if (hasRequestedImageKey(request)) {
+            throw new BusinessException(PlaceErrorCode.INVALID_IMAGE_KEY);
+        }
+
+        deleteImageIfPresent(nanoId, existingImageKey);
+        return null;
+    }
+
+    private boolean hasFile(MultipartFile image) {
+        return image != null && !image.isEmpty();
+    }
+
+    private boolean isEmptyFile(MultipartFile image) {
+        return image == null || image.isEmpty();
+    }
+
+    private boolean hasRequestedImageKey(PlaceDto.updatePlaceReq request) {
+        return request != null && StringUtils.hasText(request.getImageKey());
+    }
+
+    private boolean hasSameImageKey(PlaceDto.updatePlaceReq request, String existingImageKey) {
+        return hasRequestedImageKey(request) && request.getImageKey().trim().equals(existingImageKey);
+    }
+
+    private void validateAbsentImageKey(PlaceDto.updatePlaceReq request) {
+        if (hasRequestedImageKey(request)) {
+            throw new BusinessException(PlaceErrorCode.INVALID_IMAGE_KEY);
+        }
+    }
+
+    private void validateUpdateRequest(Place place, PlaceDto.updatePlaceReq request, MultipartFile image) {
+        if (!StringUtils.hasText(place.getImgUrl()) && request == null && isEmptyFile(image)) {
+            throw new BusinessException(PlaceErrorCode.NO_FIELDS_TO_UPDATE);
+        }
+    }
+
+    private void deleteImageIfPresent(String nanoId, String imageKey) {
+        if (StringUtils.hasText(imageKey)) {
+            s3Service.deleteImage(nanoId, imageKey);
+        }
+    }
+
+    private String resolveImageUrl(String imageKey) {
+        if (!StringUtils.hasText(imageKey)) {
+            return null;
+        }
+        return s3Service.getImageUrl(imageKey);
     }
 }

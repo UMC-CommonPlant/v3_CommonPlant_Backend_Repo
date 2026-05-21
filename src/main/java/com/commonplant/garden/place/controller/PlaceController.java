@@ -9,6 +9,7 @@ import com.commonplant.garden.user.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
@@ -124,13 +125,25 @@ public class PlaceController {
             @ApiResponse(responseCode = "200", description = "장소 수정 성공"),
             @ApiResponse(responseCode = "404", description = "장소 없음")
     })
-    @PutMapping("/update/{code}")
+    @PutMapping(value = "/update/{code}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<JsonResponse> updatePlace(
             @Parameter(hidden = true) @AuthenticationPrincipal String nanoId,
             @Parameter(description = "장소 코드") @PathVariable String code,
-            @Parameter(description = "장소 수정 정보(JSON)") @RequestPart(value = "place") PlaceDto.updatePlaceReq req,
             @Parameter(
-                    description = "장소 이미지(선택)",
+                    description = "장소 수정 정보(JSON)",
+                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            schema = @Schema(implementation = PlaceDto.updatePlaceReq.class),
+                            examples = @ExampleObject(value = """
+                                    {
+                                      "imageKey": "images/user-nano-id/garden.png",
+                                      "name": "새로운 정원",
+                                      "address": "경기도 새로운 주소"
+                                    }
+                                    """))
+            )
+            @RequestPart(value = "place", required = false) PlaceDto.updatePlaceReq req,
+            @Parameter(
+                    description = "장소 이미지 파일(선택)",
                     content = @Content(mediaType = MediaType.MULTIPART_FORM_DATA_VALUE,
                             schema = @Schema(type = "string", format = "binary"))
             )

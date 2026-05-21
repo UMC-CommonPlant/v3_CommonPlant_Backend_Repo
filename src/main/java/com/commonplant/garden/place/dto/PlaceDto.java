@@ -29,6 +29,9 @@ public class PlaceDto {
     @AllArgsConstructor
     @Schema(description = "장소 수정 요청")
     public static class updatePlaceReq {
+        @Schema(description = "현재 대표 이미지 key. 새 파일이 있으면 값과 무관하게 교체하고, 새 파일이 없을 때 기존 key와 같으면 유지하며, 없거나 null이면 삭제합니다.", example = "images/user-nano-id/garden.png", nullable = true)
+        private String imageKey;
+
         @Schema(description = "장소 이름", example = "정원")
         private String name;
 
@@ -68,6 +71,9 @@ public class PlaceDto {
 
         @Schema(description = "장소 주소", example = "서울특별시 ...")
         private String address;
+
+        @Schema(description = "이미지 URL", example = "https://.../image.png")
+        private String imgUrl;
 
         @Schema(description = "소유자 여부", example = "true")
         private boolean isOwner;
@@ -123,8 +129,8 @@ public class PlaceDto {
         @Schema(description = "식물 수", example = "12")
         private String plant;
 
-        public getPlaceListRes(Place place, String member, String plant) {
-            this.image = place.getImgUrl();
+        public getPlaceListRes(Place place, String member, String plant, String imageUrl) {
+            this.image = imageUrl;
             this.code = place.getCode();
             this.name = place.getName();
             this.member = member;
