@@ -14,6 +14,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
@@ -50,17 +51,39 @@ public class PlaceController {
                                       "success": true
                                     }
                                     """))),
-            @ApiResponse(responseCode = "400", description = "요청 형식 오류",
+            @ApiResponse(responseCode = "400", description = "요청 값 검증 실패 - 장소 이름 10자 초과",
                     content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
                             examples = @ExampleObject(value = """
-                                    {
-                                      "timeStamp": "2026-05-21 19:30:00",
-                                      "status": 400,
-                                      "message": "BAD_REQUEST",
-                                      "result": null,
-                                      "success": false
-                                    }
-                                    """)))
+                                {
+                                  "timeStamp": "2026-05-21 19:30:00",
+                                  "status": 400,
+                                  "message": "P107",
+                                  "result": null,
+                                  "success": false
+                                }
+                                """))),
+            @ApiResponse(responseCode = "400", description = "요청 값 검증 실패 - 주소 누락/공백",
+                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            examples = @ExampleObject(value = """
+                                {
+                                  "timeStamp": "2026-05-21 19:30:00",
+                                  "status": 400,
+                                  "message": "P108",
+                                  "result": null,
+                                  "success": false
+                                }
+                                """))),
+            @ApiResponse(responseCode = "400", description = "요청 값 검증 실패 - 이름 누락/공백",
+                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            examples = @ExampleObject(value = """
+                                {
+                                  "timeStamp": "2026-05-21 19:30:00",
+                                  "status": 400,
+                                  "message": "P109",
+                                  "result": null,
+                                  "success": false
+                                }
+                                """)))
     })
     @PostMapping(value = "/create",
             consumes = MediaType.MULTIPART_FORM_DATA_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
@@ -78,7 +101,7 @@ public class PlaceController {
                                     """)
                     )
             )
-            @RequestPart("place") PlaceDto.createPlaceReq req,
+            @Valid @RequestPart("place") PlaceDto.createPlaceReq req,
             @Parameter(
                     description = "장소 이미지(선택)",
                     content = @Content(mediaType = MediaType.MULTIPART_FORM_DATA_VALUE,
@@ -231,52 +254,91 @@ public class PlaceController {
             @ApiResponse(responseCode = "200", description = "장소 수정 성공",
                     content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
                             examples = @ExampleObject(value = """
-                                    {
-                                      "timeStamp": "2026-05-21 19:30:00",
-                                      "status": 200,
-                                      "message": "updatePlace",
-                                      "result": {
-                                        "code": "ABCabc",
-                                        "name": "새로운 정원",
-                                        "address": "경기도 새로운 주소",
-                                        "imgUrl": "https://.../garden-updated.png"
-                                      },
-                                      "success": true
-                                    }
-                                    """))),
-            @ApiResponse(responseCode = "400", description = "수정 요청 값 오류",
+                                {
+                                  "timeStamp": "2026-05-21 19:30:00",
+                                  "status": 200,
+                                  "message": "updatePlace",
+                                  "result": {
+                                    "code": "ABCabc",
+                                    "name": "새로운 정원",
+                                    "address": "경기도 새로운 주소",
+                                    "imgUrl": "https://.../garden-updated.png"
+                                  },
+                                  "success": true
+                                }
+                                """))),
+
+            @ApiResponse(responseCode = "400", description = "요청 값 검증 실패 - 장소 이름 누락",
                     content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
                             examples = @ExampleObject(value = """
-                                    {
-                                      "timeStamp": "2026-05-21 19:30:00",
-                                      "status": 400,
-                                      "message": "P105",
-                                      "result": null,
-                                      "success": false
-                                    }
-                                    """))),
+                                {
+                                  "timeStamp": "2026-05-21 19:30:00",
+                                  "status": 400,
+                                  "message": "P109",
+                                  "result": null,
+                                  "success": false
+                                }
+                                """))),
+
+            @ApiResponse(responseCode = "400", description = "요청 값 검증 실패 - 장소 이름 10자 초과",
+                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            examples = @ExampleObject(value = """
+                                {
+                                  "timeStamp": "2026-05-21 19:30:00",
+                                  "status": 400,
+                                  "message": "P107",
+                                  "result": null,
+                                  "success": false
+                                }
+                                """))),
+
+            @ApiResponse(responseCode = "400", description = "요청 값 검증 실패 - 주소 누락/공백",
+                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            examples = @ExampleObject(value = """
+                                {
+                                  "timeStamp": "2026-05-21 19:30:00",
+                                  "status": 400,
+                                  "message": "P108",
+                                  "result": null,
+                                  "success": false
+                                }
+                                """))),
+
+            @ApiResponse(responseCode = "400", description = "장소 이미지 키 오류",
+                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            examples = @ExampleObject(value = """
+                                {
+                                  "timeStamp": "2026-05-21 19:30:00",
+                                  "status": 400,
+                                  "message": "P106",
+                                  "result": null,
+                                  "success": false
+                                }
+                                """))),
+
             @ApiResponse(responseCode = "403", description = "장소 접근 권한 없음",
                     content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
                             examples = @ExampleObject(value = """
-                                    {
-                                      "timeStamp": "2026-05-21 19:30:00",
-                                      "status": 403,
-                                      "message": "P103",
-                                      "result": null,
-                                      "success": false
-                                    }
-                                    """))),
+                                {
+                                  "timeStamp": "2026-05-21 19:30:00",
+                                  "status": 403,
+                                  "message": "P103",
+                                  "result": null,
+                                  "success": false
+                                }
+                                """))),
+
             @ApiResponse(responseCode = "404", description = "장소 없음",
                     content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
                             examples = @ExampleObject(value = """
-                                    {
-                                      "timeStamp": "2026-05-21 19:30:00",
-                                      "status": 404,
-                                      "message": "P101",
-                                      "result": null,
-                                      "success": false
-                                    }
-                                    """)))
+                                {
+                                  "timeStamp": "2026-05-21 19:30:00",
+                                  "status": 404,
+                                  "message": "P101",
+                                  "result": null,
+                                  "success": false
+                                }
+                                """)))
     })
     @PutMapping(value = "/update/{code}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<JsonResponse> updatePlace(
@@ -294,7 +356,7 @@ public class PlaceController {
                                     }
                                     """))
             )
-            @RequestPart(value = "place", required = false) PlaceDto.updatePlaceReq req,
+            @Valid @RequestPart(value = "place") PlaceDto.updatePlaceReq req,
             @Parameter(
                     description = "장소 이미지 파일(선택)",
                     content = @Content(mediaType = MediaType.MULTIPART_FORM_DATA_VALUE,

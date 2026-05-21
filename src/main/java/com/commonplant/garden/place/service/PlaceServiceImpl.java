@@ -45,6 +45,18 @@ public class PlaceServiceImpl implements PlaceService {
     public String create(String nanoId, PlaceDto.createPlaceReq req, MultipartFile image) {
         User user = userService.findActiveUserByNanoId(nanoId);
 
+        if (!StringUtils.hasText(req.getAddress())) {
+            throw new BusinessException(PlaceErrorCode.PLACE_ADDRESS_REQUIRED);
+        }
+
+        if (!StringUtils.hasText(req.getName())) {
+            throw new BusinessException(PlaceErrorCode.PLACE_NAME_REQUIRED);
+        }
+
+        if (req.getName() != null && req.getName().trim().length() > 10) {
+            throw new BusinessException(PlaceErrorCode.PLACE_NAME_TOO_LONG);
+        }
+
         String newCode = generateUniqueCode();
 
         // [TODO]: Live Weather API
@@ -153,6 +165,18 @@ public class PlaceServiceImpl implements PlaceService {
 
         Place place = getPlaceByCode(code);
         belongUserOnPlace(user.getNanoId(), code);
+
+        if (!StringUtils.hasText(req.getAddress())) {
+            throw new BusinessException(PlaceErrorCode.PLACE_ADDRESS_REQUIRED);
+        }
+
+        if (!StringUtils.hasText(req.getName())) {
+            throw new BusinessException(PlaceErrorCode.PLACE_NAME_REQUIRED);
+        }
+
+        if (req.getName() != null && req.getName().trim().length() > 10) {
+            throw new BusinessException(PlaceErrorCode.PLACE_NAME_TOO_LONG);
+        }
 
         validateUpdateRequest(place, req, image);
         String imageKey = resolveUpdatedImageKey(nanoId, place.getImgUrl(), req, image);
