@@ -3,6 +3,8 @@ package com.commonplant.garden.place.dto;
 import com.commonplant.garden.place.entity.Place;
 // import com.commonplant.garden.plant.dto.PlantDto;
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -17,10 +19,14 @@ public class PlaceDto {
     @AllArgsConstructor
     @Schema(description = "장소 생성 요청")
     public static class createPlaceReq {
-        @Schema(description = "장소 이름", example = "카페")
+
+        @NotBlank(message = "P107")
+        @Size(max = 10, message = "P107")
+        @Schema(description = "장소 이름(최대 10자)", example = "카페")
         private String name;
 
-        @Schema(description = "장소 주소", example = "서울특별시 ...")
+        @NotBlank(message = "P108")
+        @Schema(description = "장소 주소(필수)", example = "서울특별시 ...")
         private String address;
     }
 
@@ -29,9 +35,15 @@ public class PlaceDto {
     @AllArgsConstructor
     @Schema(description = "장소 수정 요청")
     public static class updatePlaceReq {
+        @Schema(description = "현재 대표 이미지 key. 새 파일이 있으면 값과 무관하게 교체하고, 새 파일이 없을 때 기존 key와 같으면 유지하며, 없거나 null이면 삭제합니다.", example = "images/user-nano-id/garden.png", nullable = true)
+        private String imageKey;
+
+        @NotBlank(message = "P107")
+        @Size(max = 10, message = "P107")
         @Schema(description = "장소 이름", example = "정원")
         private String name;
 
+        @NotBlank(message = "P108")
         @Schema(description = "장소 주소", example = "경기도 ...")
         private String address;
     }
@@ -68,6 +80,9 @@ public class PlaceDto {
 
         @Schema(description = "장소 주소", example = "서울특별시 ...")
         private String address;
+
+        @Schema(description = "이미지 URL", example = "https://.../image.png")
+        private String imgUrl;
 
         @Schema(description = "소유자 여부", example = "true")
         private boolean isOwner;
@@ -123,8 +138,8 @@ public class PlaceDto {
         @Schema(description = "식물 수", example = "12")
         private String plant;
 
-        public getPlaceListRes(Place place, String member, String plant) {
-            this.image = place.getImgUrl();
+        public getPlaceListRes(Place place, String member, String plant, String imageUrl) {
+            this.image = imageUrl;
             this.code = place.getCode();
             this.name = place.getName();
             this.member = member;
