@@ -59,9 +59,9 @@ public class PlantController {
     public ResponseEntity<JsonResponse> deletePlant(
             @Parameter(hidden = true) @AuthenticationPrincipal String nanoId,
             @Parameter(description = "식물 ID", example = "1") @PathVariable("plantId") Long plantId,
-            @Parameter(description = "식물이 속한 장소 ID", example = "3") @RequestParam("placeId") Long placeId
+            @Parameter(description = "식물이 속한 장소 코드", example = "Abc123") @RequestParam("placeCode") String placeCode
     ) {
-        PlantResponse.DeleteResponse response = plantService.deletePlant(nanoId, placeId, plantId);
+        PlantResponse.DeleteResponse response = plantService.deletePlant(nanoId, placeCode, plantId);
         return ResponseEntity.ok(new JsonResponse(true, 200, "deletePlant", response));
     }
 
@@ -90,9 +90,9 @@ public class PlantController {
     public ResponseEntity<JsonResponse> getPlantEditInfo(
             @Parameter(hidden = true) @AuthenticationPrincipal String nanoId,
             @Parameter(description = "식물 ID", example = "1") @PathVariable("plantId") Long plantId,
-            @Parameter(description = "식물이 속한 장소 ID", example = "3") @RequestParam("placeId") Long placeId
+            @Parameter(description = "식물이 속한 장소 코드", example = "Abc123") @RequestParam("placeCode") String placeCode
     ) {
-        PlantResponse.EditInfoResponse response = plantService.getPlantEditInfo(nanoId, placeId, plantId);
+        PlantResponse.EditInfoResponse response = plantService.getPlantEditInfo(nanoId, placeCode, plantId);
         return ResponseEntity.ok(new JsonResponse(true, 200, "getPlantEditInfo", response));
     }
 
@@ -122,7 +122,7 @@ public class PlantController {
     public ResponseEntity<JsonResponse> updatePlant(
             @Parameter(hidden = true) @AuthenticationPrincipal String nanoId,
             @Parameter(description = "식물 ID", example = "1") @PathVariable("plantId") Long plantId,
-            @Parameter(description = "식물이 속한 장소 ID", example = "3") @RequestParam("placeId") Long placeId,
+            @Parameter(description = "식물이 속한 장소 코드", example = "Abc123") @RequestParam("placeCode") String placeCode,
             @Parameter(
                     description = "식물 수정 정보(JSON)",
                     content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
@@ -143,7 +143,7 @@ public class PlantController {
             )
             @RequestPart(value = "image", required = false) MultipartFile image
     ) {
-        PlantResponse.EditInfoResponse response = plantService.updatePlant(nanoId, placeId, plantId, request, image);
+        PlantResponse.EditInfoResponse response = plantService.updatePlant(nanoId, placeCode, plantId, request, image);
         return ResponseEntity.ok(new JsonResponse(true, 200, "updatePlant", response));
     }
 
@@ -177,9 +177,9 @@ public class PlantController {
     public ResponseEntity<JsonResponse> getPlant(
             @Parameter(hidden = true) @AuthenticationPrincipal String nanoId,
             @Parameter(description = "식물 ID", example = "1") @PathVariable("plantId") Long plantId,
-            @Parameter(description = "식물이 속한 장소 ID", example = "3") @RequestParam("placeId") Long placeId
+            @Parameter(description = "식물이 속한 장소 코드", example = "Abc123") @RequestParam("placeCode") String placeCode
     ) {
-        PlantResponse.DetailResponse response = plantService.getPlant(nanoId, placeId, plantId);
+        PlantResponse.DetailResponse response = plantService.getPlant(nanoId, placeCode, plantId);
         return ResponseEntity.ok(new JsonResponse(true, 200, "getPlant", response));
     }
 
@@ -245,7 +245,7 @@ public class PlantController {
                             schema = @Schema(implementation = PlantRequest.CreateRequest.class),
                             examples = @ExampleObject(value = """
                                     {
-                                      "placeId": 3,
+                                      "placeCode": "Abc123",
                                       "scientificNameKo": "몬스테라",
                                       "scientificNameEn": "Monstera deliciosa",
                                       "nickname": "거실 몬스테라",

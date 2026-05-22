@@ -7,19 +7,19 @@ import org.springframework.web.multipart.MultipartFile;
 import java.util.List;
 
 public interface PlantService {
-    PlantResponse.DeleteResponse deletePlant(String nanoId, Long placeId, Long plantId);
+    PlantResponse.DeleteResponse deletePlant(String nanoId, String placeCode, Long plantId);
 
-    PlantResponse.EditInfoResponse getPlantEditInfo(String nanoId, Long placeId, Long plantId);
+    PlantResponse.EditInfoResponse getPlantEditInfo(String nanoId, String placeCode, Long plantId);
 
     PlantResponse.EditInfoResponse updatePlant(
             String nanoId,
-            Long placeId,
+            String placeCode,
             Long plantId,
             PlantRequest.UpdateRequest request,
             MultipartFile image
     );
 
-    PlantResponse.DetailResponse getPlant(String nanoId, Long placeId, Long plantId);
+    PlantResponse.DetailResponse getPlant(String nanoId, String placeCode, Long plantId);
 
     PlantResponse.PlantListResponse getPlants(String nanoId, int page, int size);
 
