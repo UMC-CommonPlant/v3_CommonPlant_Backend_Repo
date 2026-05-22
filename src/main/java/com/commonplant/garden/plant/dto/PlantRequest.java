@@ -11,6 +11,28 @@ public class PlantRequest {
 
     @Getter
     @NoArgsConstructor
+    @Schema(description = "식물 생성 multipart 요청")
+    public static class CreateMultipartRequest {
+        @Schema(description = "식물 생성 정보(JSON)", implementation = CreateRequest.class, requiredMode = Schema.RequiredMode.REQUIRED)
+        private CreateRequest plant;
+
+        @Schema(description = "식물 이미지 파일", type = "string", format = "binary", nullable = true)
+        private String image;
+    }
+
+    @Getter
+    @NoArgsConstructor
+    @Schema(description = "식물 수정 multipart 요청")
+    public static class UpdateMultipartRequest {
+        @Schema(description = "식물 수정 정보(JSON)", implementation = UpdateRequest.class, nullable = true)
+        private UpdateRequest plant;
+
+        @Schema(description = "식물 이미지 파일", type = "string", format = "binary", nullable = true)
+        private String image;
+    }
+
+    @Getter
+    @NoArgsConstructor
     @Schema(description = "식물 생성 요청")
     public static class CreateRequest {
         @NotBlank

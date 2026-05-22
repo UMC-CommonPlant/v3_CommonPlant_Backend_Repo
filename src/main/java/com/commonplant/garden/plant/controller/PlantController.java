@@ -7,6 +7,7 @@ import com.commonplant.garden.plant.service.PlantService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Encoding;
 import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -121,6 +122,15 @@ public class PlantController {
             @ApiResponse(responseCode = "403", description = "장소 접근 권한 없음"),
             @ApiResponse(responseCode = "404", description = "식물 없음")
     })
+    @io.swagger.v3.oas.annotations.parameters.RequestBody(
+            description = "식물 수정 multipart 요청",
+            content = @Content(mediaType = MediaType.MULTIPART_FORM_DATA_VALUE,
+                    schema = @Schema(implementation = PlantRequest.UpdateMultipartRequest.class),
+                    encoding = {
+                            @Encoding(name = "plant", contentType = MediaType.APPLICATION_JSON_VALUE),
+                            @Encoding(name = "image", contentType = MediaType.APPLICATION_OCTET_STREAM_VALUE)
+                    })
+    )
     @PutMapping(value = "/{plantId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<JsonResponse> updatePlant(
             @Parameter(hidden = true) @AuthenticationPrincipal String nanoId,
@@ -242,6 +252,16 @@ public class PlantController {
             @ApiResponse(responseCode = "400", description = "요청 값 검증 실패"),
             @ApiResponse(responseCode = "403", description = "장소 접근 권한 없음")
     })
+    @io.swagger.v3.oas.annotations.parameters.RequestBody(
+            description = "식물 생성 multipart 요청",
+            required = true,
+            content = @Content(mediaType = MediaType.MULTIPART_FORM_DATA_VALUE,
+                    schema = @Schema(implementation = PlantRequest.CreateMultipartRequest.class),
+                    encoding = {
+                            @Encoding(name = "plant", contentType = MediaType.APPLICATION_JSON_VALUE),
+                            @Encoding(name = "image", contentType = MediaType.APPLICATION_OCTET_STREAM_VALUE)
+                    })
+    )
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<JsonResponse> createPlant(
             @Parameter(hidden = true) @AuthenticationPrincipal String nanoId,
