@@ -45,7 +45,7 @@ public class AuthController {
     @SecurityRequirements
     @PostMapping("/login")
     public ResponseEntity<JsonResponse> login(@Valid @RequestBody AuthRequest.Login request) {
-        AuthResponse response = authService.login(request);
+        AuthResponse.Login response = authService.login(request);
         return ResponseEntity.ok(new JsonResponse(true, 200, "login success", response));
     }
 
@@ -68,7 +68,7 @@ public class AuthController {
     @SecurityRequirements
     @PostMapping("/register")
     public ResponseEntity<JsonResponse> register(@Valid @RequestBody AuthRequest.Register request) {
-        AuthResponse response = authService.register(request);
+        AuthResponse.Register response = authService.register(request);
         return ResponseEntity.ok(new JsonResponse(true, 200, "register success", response));
     }
 }
