@@ -10,8 +10,8 @@ import com.commonplant.garden.place.entity.Place;
 import com.commonplant.garden.place.service.PlaceService;
 import com.commonplant.garden.s3.service.S3Service;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Slice;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -45,8 +45,8 @@ public class PlantServiceImpl implements PlantService {
     }
 
     @Override
-    public PlantResponse.EditInfoResponse getPlantEditInfo(String nanoId, String placeCode, Long plantId) {
-        Plant plant = findAccessiblePlant(nanoId, placeCode, plantId);
+    public PlantResponse.EditInfoResponse getPlantEditInfo(String nanoId, Long plantId) {
+        Plant plant = findAccessiblePlant(nanoId, plantId);
         return PlantResponse.EditInfoResponse.of(plant, resolveImageUrl(plant.getImageKey()));
     }
 
@@ -73,9 +73,9 @@ public class PlantServiceImpl implements PlantService {
     }
 
     @Override
-    public PlantResponse.DetailResponse getPlant(String nanoId, String placeCode, Long plantId) {
-        Place place = findAccessiblePlace(nanoId, placeCode);
-        Plant plant = findPlantBelongsToPlace(place.getPlaceIdx(), plantId);
+    public PlantResponse.DetailResponse getPlant(String nanoId, Long plantId) {
+        Plant plant = findAccessiblePlant(nanoId, plantId);
+        Place place = placeService.getPlaceById(plant.getPlaceId());
 
         String memo = findPlantMemo(plant.getPlantIdx());
         return PlantResponse.DetailResponse.of(plant, memo, place.getName(), resolveImageUrl(plant.getImageKey()));
@@ -84,23 +84,33 @@ public class PlantServiceImpl implements PlantService {
     @Override
     public PlantResponse.PlantListResponse getPlants(String nanoId, int page, int size) {
         List<Long> placeIds = findAccessiblePlaceIds(nanoId);
+        int normalizedPage = normalizePage(page);
+        int normalizedSize = normalizeSize(size);
         if (placeIds.isEmpty()) {
             return PlantResponse.PlantListResponse.builder()
-                    .plants(List.of())
-                    .hasNext(false)
+                    .content(PlantResponse.PlantPageContent.builder()
+                            .items(List.of())
+                            .totalCount(0)
+                            .page(normalizedPage)
+                            .size(normalizedSize)
+                            .build())
                     .build();
         }
 
-        Slice<Plant> plants = plantRepository.findAllByPlaceIdInOrderByPlantIdxDesc(
+        Page<Plant> plants = plantRepository.findAllByPlaceIdInOrderByPlantIdxDesc(
                 placeIds,
-                PageRequest.of(normalizePage(page), normalizeSize(size))
+                PageRequest.of(normalizedPage, normalizedSize)
         );
 
         return PlantResponse.PlantListResponse.builder()
-                .plants(plants.getContent().stream()
-                        .map(plant -> PlantResponse.PlantSummary.of(plant, resolveImageUrl(plant.getImageKey())))
-                        .toList())
-                .hasNext(plants.hasNext())
+                .content(PlantResponse.PlantPageContent.builder()
+                        .items(plants.getContent().stream()
+                                .map(plant -> PlantResponse.PlantSummary.of(plant, resolveImageUrl(plant.getImageKey())))
+                                .toList())
+                        .totalCount(plants.getTotalElements())
+                        .page(normalizedPage)
+                        .size(normalizedSize)
+                        .build())
                 .build();
     }
 
@@ -227,6 +237,15 @@ public class PlantServiceImpl implements PlantService {
     private Plant findAccessiblePlant(String nanoId, String placeCode, Long plantId) {
         Place place = findAccessiblePlace(nanoId, placeCode);
         return findPlantBelongsToPlace(place.getPlaceIdx(), plantId);
+    }
+
+    private Plant findAccessiblePlant(String nanoId, Long plantId) {
+        Plant plant = plantRepository.findById(plantId)
+                .orElseThrow(() -> new BusinessException(PlantErrorCode.PLANT_NOT_FOUND));
+        if (!findAccessiblePlaceIds(nanoId).contains(plant.getPlaceId())) {
+            throw new BusinessException(PlantErrorCode.PLACE_ACCESS_DENIED);
+        }
+        return plant;
     }
 
     private Plant findPlantBelongsToPlace(Long placeId, Long plantId) {

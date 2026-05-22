@@ -93,11 +93,25 @@ public class PlantResponse {
     @Builder
     @Schema(description = "식물 목록 응답")
     public static class PlantListResponse {
-        @Schema(description = "식물 목록")
-        private List<PlantSummary> plants;
+        @Schema(description = "페이지네이션된 식물 목록 데이터")
+        private PlantPageContent content;
+    }
 
-        @Schema(description = "다음 페이지 존재 여부", example = "false")
-        private boolean hasNext;
+    @Getter
+    @Builder
+    @Schema(description = "페이지네이션된 식물 목록 데이터")
+    public static class PlantPageContent {
+        @Schema(description = "현재 페이지 식물 목록")
+        private List<PlantSummary> items;
+
+        @Schema(description = "전체 식물 개수", example = "42")
+        private long totalCount;
+
+        @Schema(description = "현재 페이지 번호(0부터 시작)", example = "0")
+        private int page;
+
+        @Schema(description = "페이지 크기", example = "20")
+        private int size;
     }
 
     @Getter

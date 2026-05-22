@@ -92,10 +92,9 @@ public class PlantController {
     @GetMapping("/{plantId}/edit")
     public ResponseEntity<JsonResponse> getPlantEditInfo(
             @Parameter(hidden = true) @AuthenticationPrincipal String nanoId,
-            @Parameter(description = "식물 ID", example = "1") @PathVariable("plantId") Long plantId,
-            @Parameter(description = "식물이 속한 장소 코드", example = "Abc123") @RequestParam("placeCode") String placeCode
+            @Parameter(description = "식물 ID", example = "1") @PathVariable("plantId") Long plantId
     ) {
-        PlantResponse.EditInfoResponse response = plantService.getPlantEditInfo(nanoId, placeCode, plantId);
+        PlantResponse.EditInfoResponse response = plantService.getPlantEditInfo(nanoId, plantId);
         return ResponseEntity.ok(new JsonResponse(true, 200, "getPlantEditInfo", response));
     }
 
@@ -190,10 +189,9 @@ public class PlantController {
     @GetMapping("/{plantId}")
     public ResponseEntity<JsonResponse> getPlant(
             @Parameter(hidden = true) @AuthenticationPrincipal String nanoId,
-            @Parameter(description = "식물 ID", example = "1") @PathVariable("plantId") Long plantId,
-            @Parameter(description = "식물이 속한 장소 코드", example = "Abc123") @RequestParam("placeCode") String placeCode
+            @Parameter(description = "식물 ID", example = "1") @PathVariable("plantId") Long plantId
     ) {
-        PlantResponse.DetailResponse response = plantService.getPlant(nanoId, placeCode, plantId);
+        PlantResponse.DetailResponse response = plantService.getPlant(nanoId, plantId);
         return ResponseEntity.ok(new JsonResponse(true, 200, "getPlant", response));
     }
 
@@ -208,14 +206,18 @@ public class PlantController {
                                       "status": 200,
                                       "message": "getPlants",
                                       "result": {
-                                        "plants": [
-                                          {
-                                            "plantId": 1,
-                                            "nickname": "거실 몬스테라",
-                                            "representativeImageUrl": "https://bucket.s3.ap-northeast-2.amazonaws.com/images/user-nano-id/monstera.png?X-Amz-Algorithm=..."
-                                          }
-                                        ],
-                                        "hasNext": false
+                                        "content": {
+                                          "items": [
+                                            {
+                                              "plantId": 1,
+                                              "nickname": "거실 몬스테라",
+                                              "representativeImageUrl": "https://bucket.s3.ap-northeast-2.amazonaws.com/images/user-nano-id/monstera.png?X-Amz-Algorithm=..."
+                                            }
+                                          ],
+                                          "totalCount": 42,
+                                          "page": 0,
+                                          "size": 20
+                                        }
                                       },
                                       "success": true
                                     }
