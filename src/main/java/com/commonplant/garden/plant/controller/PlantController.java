@@ -7,6 +7,7 @@ import com.commonplant.garden.plant.service.PlantService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Encoding;
 import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -41,7 +42,8 @@ public class PlantController {
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "식물 삭제 성공",
                     content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
-                            examples = @ExampleObject(value = """
+                            schema = @Schema(implementation = PlantResponse.DeleteJsonResponse.class),
+                            examples = @ExampleObject(name = "success", summary = "식물 삭제 성공 응답", value = """
                                     {
                                       "timeStamp": "2026-05-12 19:30:00",
                                       "status": 200,
@@ -59,9 +61,9 @@ public class PlantController {
     public ResponseEntity<JsonResponse> deletePlant(
             @Parameter(hidden = true) @AuthenticationPrincipal String nanoId,
             @Parameter(description = "식물 ID", example = "1") @PathVariable("plantId") Long plantId,
-            @Parameter(description = "식물이 속한 장소 ID", example = "3") @RequestParam("placeId") Long placeId
+            @Parameter(description = "식물이 속한 장소 코드", example = "Abc123") @RequestParam("placeCode") String placeCode
     ) {
-        PlantResponse.DeleteResponse response = plantService.deletePlant(nanoId, placeId, plantId);
+        PlantResponse.DeleteResponse response = plantService.deletePlant(nanoId, placeCode, plantId);
         return ResponseEntity.ok(new JsonResponse(true, 200, "deletePlant", response));
     }
 
@@ -69,7 +71,8 @@ public class PlantController {
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "식물 수정 정보 조회 성공",
                     content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
-                            examples = @ExampleObject(value = """
+                            schema = @Schema(implementation = PlantResponse.EditInfoJsonResponse.class),
+                            examples = @ExampleObject(name = "success", summary = "식물 수정 정보 조회 성공 응답", value = """
                                     {
                                       "timeStamp": "2026-05-12 19:30:00",
                                       "status": 200,
@@ -89,10 +92,9 @@ public class PlantController {
     @GetMapping("/{plantId}/edit")
     public ResponseEntity<JsonResponse> getPlantEditInfo(
             @Parameter(hidden = true) @AuthenticationPrincipal String nanoId,
-            @Parameter(description = "식물 ID", example = "1") @PathVariable("plantId") Long plantId,
-            @Parameter(description = "식물이 속한 장소 ID", example = "3") @RequestParam("placeId") Long placeId
+            @Parameter(description = "식물 ID", example = "1") @PathVariable("plantId") Long plantId
     ) {
-        PlantResponse.EditInfoResponse response = plantService.getPlantEditInfo(nanoId, placeId, plantId);
+        PlantResponse.EditInfoResponse response = plantService.getPlantEditInfo(nanoId, plantId);
         return ResponseEntity.ok(new JsonResponse(true, 200, "getPlantEditInfo", response));
     }
 
@@ -100,7 +102,8 @@ public class PlantController {
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "식물 수정 성공",
                     content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
-                            examples = @ExampleObject(value = """
+                            schema = @Schema(implementation = PlantResponse.EditInfoJsonResponse.class),
+                            examples = @ExampleObject(name = "success", summary = "식물 수정 성공 응답", value = """
                                     {
                                       "timeStamp": "2026-05-12 19:30:00",
                                       "status": 200,
@@ -118,11 +121,20 @@ public class PlantController {
             @ApiResponse(responseCode = "403", description = "장소 접근 권한 없음"),
             @ApiResponse(responseCode = "404", description = "식물 없음")
     })
+    @io.swagger.v3.oas.annotations.parameters.RequestBody(
+            description = "식물 수정 multipart 요청",
+            content = @Content(mediaType = MediaType.MULTIPART_FORM_DATA_VALUE,
+                    schema = @Schema(implementation = PlantRequest.UpdateMultipartRequest.class),
+                    encoding = {
+                            @Encoding(name = "plant", contentType = MediaType.APPLICATION_JSON_VALUE),
+                            @Encoding(name = "image", contentType = MediaType.APPLICATION_OCTET_STREAM_VALUE)
+                    })
+    )
     @PutMapping(value = "/{plantId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<JsonResponse> updatePlant(
             @Parameter(hidden = true) @AuthenticationPrincipal String nanoId,
             @Parameter(description = "식물 ID", example = "1") @PathVariable("plantId") Long plantId,
-            @Parameter(description = "식물이 속한 장소 ID", example = "3") @RequestParam("placeId") Long placeId,
+            @Parameter(description = "식물이 속한 장소 코드", example = "Abc123") @RequestParam("placeCode") String placeCode,
             @Parameter(
                     description = "식물 수정 정보(JSON)",
                     content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
@@ -143,7 +155,7 @@ public class PlantController {
             )
             @RequestPart(value = "image", required = false) MultipartFile image
     ) {
-        PlantResponse.EditInfoResponse response = plantService.updatePlant(nanoId, placeId, plantId, request, image);
+        PlantResponse.EditInfoResponse response = plantService.updatePlant(nanoId, placeCode, plantId, request, image);
         return ResponseEntity.ok(new JsonResponse(true, 200, "updatePlant", response));
     }
 
@@ -151,7 +163,8 @@ public class PlantController {
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "식물 상세 조회 성공",
                     content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
-                            examples = @ExampleObject(value = """
+                            schema = @Schema(implementation = PlantResponse.DetailJsonResponse.class),
+                            examples = @ExampleObject(name = "success", summary = "식물 상세 조회 성공 응답", value = """
                                     {
                                       "timeStamp": "2026-05-12 19:30:00",
                                       "status": 200,
@@ -176,10 +189,9 @@ public class PlantController {
     @GetMapping("/{plantId}")
     public ResponseEntity<JsonResponse> getPlant(
             @Parameter(hidden = true) @AuthenticationPrincipal String nanoId,
-            @Parameter(description = "식물 ID", example = "1") @PathVariable("plantId") Long plantId,
-            @Parameter(description = "식물이 속한 장소 ID", example = "3") @RequestParam("placeId") Long placeId
+            @Parameter(description = "식물 ID", example = "1") @PathVariable("plantId") Long plantId
     ) {
-        PlantResponse.DetailResponse response = plantService.getPlant(nanoId, placeId, plantId);
+        PlantResponse.DetailResponse response = plantService.getPlant(nanoId, plantId);
         return ResponseEntity.ok(new JsonResponse(true, 200, "getPlant", response));
     }
 
@@ -187,20 +199,25 @@ public class PlantController {
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "식물 목록 조회 성공",
                     content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
-                            examples = @ExampleObject(value = """
+                            schema = @Schema(implementation = PlantResponse.PlantListJsonResponse.class),
+                            examples = @ExampleObject(name = "success", summary = "식물 목록 조회 성공 응답", value = """
                                     {
                                       "timeStamp": "2026-05-12 19:30:00",
                                       "status": 200,
                                       "message": "getPlants",
                                       "result": {
-                                        "plants": [
-                                          {
-                                            "plantId": 1,
-                                            "nickname": "거실 몬스테라",
-                                            "representativeImageUrl": "https://bucket.s3.ap-northeast-2.amazonaws.com/images/user-nano-id/monstera.png?X-Amz-Algorithm=..."
-                                          }
-                                        ],
-                                        "hasNext": false
+                                        "content": {
+                                          "items": [
+                                            {
+                                              "plantId": 1,
+                                              "nickname": "거실 몬스테라",
+                                              "representativeImageUrl": "https://bucket.s3.ap-northeast-2.amazonaws.com/images/user-nano-id/monstera.png?X-Amz-Algorithm=..."
+                                            }
+                                          ],
+                                          "totalCount": 42,
+                                          "page": 0,
+                                          "size": 20
+                                        }
                                       },
                                       "success": true
                                     }
@@ -222,7 +239,8 @@ public class PlantController {
     @ApiResponses({
             @ApiResponse(responseCode = "201", description = "식물 생성 성공",
                     content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
-                            examples = @ExampleObject(value = """
+                            schema = @Schema(implementation = PlantResponse.CreateJsonResponse.class),
+                            examples = @ExampleObject(name = "success", summary = "식물 생성 성공 응답", value = """
                                     {
                                       "timeStamp": "2026-05-12 19:30:00",
                                       "status": 201,
@@ -236,6 +254,16 @@ public class PlantController {
             @ApiResponse(responseCode = "400", description = "요청 값 검증 실패"),
             @ApiResponse(responseCode = "403", description = "장소 접근 권한 없음")
     })
+    @io.swagger.v3.oas.annotations.parameters.RequestBody(
+            description = "식물 생성 multipart 요청",
+            required = true,
+            content = @Content(mediaType = MediaType.MULTIPART_FORM_DATA_VALUE,
+                    schema = @Schema(implementation = PlantRequest.CreateMultipartRequest.class),
+                    encoding = {
+                            @Encoding(name = "plant", contentType = MediaType.APPLICATION_JSON_VALUE),
+                            @Encoding(name = "image", contentType = MediaType.APPLICATION_OCTET_STREAM_VALUE)
+                    })
+    )
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<JsonResponse> createPlant(
             @Parameter(hidden = true) @AuthenticationPrincipal String nanoId,
@@ -245,7 +273,7 @@ public class PlantController {
                             schema = @Schema(implementation = PlantRequest.CreateRequest.class),
                             examples = @ExampleObject(value = """
                                     {
-                                      "placeId": 3,
+                                      "placeCode": "Abc123",
                                       "scientificNameKo": "몬스테라",
                                       "scientificNameEn": "Monstera deliciosa",
                                       "nickname": "거실 몬스테라",

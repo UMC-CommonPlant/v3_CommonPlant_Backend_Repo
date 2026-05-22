@@ -12,6 +12,56 @@ import java.util.List;
 public class PlantResponse {
 
     @Getter
+    @Schema(description = "식물 생성 성공 응답")
+    public static class CreateJsonResponse extends SuccessJsonResponse {
+        @Schema(description = "응답 데이터")
+        private CreateResponse result;
+    }
+
+    @Getter
+    @Schema(description = "식물 삭제 성공 응답")
+    public static class DeleteJsonResponse extends SuccessJsonResponse {
+        @Schema(description = "응답 데이터")
+        private DeleteResponse result;
+    }
+
+    @Getter
+    @Schema(description = "식물 목록 조회 성공 응답")
+    public static class PlantListJsonResponse extends SuccessJsonResponse {
+        @Schema(description = "응답 데이터")
+        private PlantListResponse result;
+    }
+
+    @Getter
+    @Schema(description = "식물 상세 조회 성공 응답")
+    public static class DetailJsonResponse extends SuccessJsonResponse {
+        @Schema(description = "응답 데이터")
+        private DetailResponse result;
+    }
+
+    @Getter
+    @Schema(description = "식물 수정 정보 성공 응답")
+    public static class EditInfoJsonResponse extends SuccessJsonResponse {
+        @Schema(description = "응답 데이터")
+        private EditInfoResponse result;
+    }
+
+    @Getter
+    public static class SuccessJsonResponse {
+        @Schema(description = "응답 시간", example = "2026-05-12 19:30:00")
+        private String timeStamp;
+
+        @Schema(description = "성공 여부", example = "true")
+        private boolean success;
+
+        @Schema(description = "HTTP 상태 코드", example = "200")
+        private int status;
+
+        @Schema(description = "응답 메시지", example = "getPlants")
+        private String message;
+    }
+
+    @Getter
     @Builder
     @Schema(description = "식물 생성 응답")
     public static class CreateResponse {
@@ -43,11 +93,25 @@ public class PlantResponse {
     @Builder
     @Schema(description = "식물 목록 응답")
     public static class PlantListResponse {
-        @Schema(description = "식물 목록")
-        private List<PlantSummary> plants;
+        @Schema(description = "페이지네이션된 식물 목록 데이터")
+        private PlantPageContent content;
+    }
 
-        @Schema(description = "다음 페이지 존재 여부", example = "false")
-        private boolean hasNext;
+    @Getter
+    @Builder
+    @Schema(description = "페이지네이션된 식물 목록 데이터")
+    public static class PlantPageContent {
+        @Schema(description = "현재 페이지 식물 목록")
+        private List<PlantSummary> items;
+
+        @Schema(description = "전체 식물 개수", example = "42")
+        private long totalCount;
+
+        @Schema(description = "현재 페이지 번호(0부터 시작)", example = "0")
+        private int page;
+
+        @Schema(description = "페이지 크기", example = "20")
+        private int size;
     }
 
     @Getter

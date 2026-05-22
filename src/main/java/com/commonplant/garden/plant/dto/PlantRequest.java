@@ -2,7 +2,6 @@ package com.commonplant.garden.plant.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
@@ -12,11 +11,33 @@ public class PlantRequest {
 
     @Getter
     @NoArgsConstructor
+    @Schema(description = "식물 생성 multipart 요청")
+    public static class CreateMultipartRequest {
+        @Schema(description = "식물 생성 정보(JSON)", implementation = CreateRequest.class, requiredMode = Schema.RequiredMode.REQUIRED)
+        private CreateRequest plant;
+
+        @Schema(description = "식물 이미지 파일", type = "string", format = "binary", nullable = true)
+        private String image;
+    }
+
+    @Getter
+    @NoArgsConstructor
+    @Schema(description = "식물 수정 multipart 요청")
+    public static class UpdateMultipartRequest {
+        @Schema(description = "식물 수정 정보(JSON)", implementation = UpdateRequest.class, nullable = true)
+        private UpdateRequest plant;
+
+        @Schema(description = "식물 이미지 파일", type = "string", format = "binary", nullable = true)
+        private String image;
+    }
+
+    @Getter
+    @NoArgsConstructor
     @Schema(description = "식물 생성 요청")
     public static class CreateRequest {
-        @NotNull
-        @Schema(description = "식물을 등록할 장소 ID", example = "3", requiredMode = Schema.RequiredMode.REQUIRED)
-        private Long placeId;
+        @NotBlank
+        @Schema(description = "식물을 등록할 장소 코드", example = "Abc123", requiredMode = Schema.RequiredMode.REQUIRED)
+        private String placeCode;
 
         @Schema(description = "식물 한글 학명", example = "몬스테라")
         private String scientificNameKo;
