@@ -43,7 +43,7 @@ public class PlantController {
             @ApiResponse(responseCode = "200", description = "식물 삭제 성공",
                     content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
                             schema = @Schema(implementation = PlantResponse.DeleteJsonResponse.class),
-                            examples = @ExampleObject(value = """
+                            examples = @ExampleObject(name = "success", summary = "식물 삭제 성공 응답", value = """
                                     {
                                       "timeStamp": "2026-05-12 19:30:00",
                                       "status": 200,
@@ -72,7 +72,7 @@ public class PlantController {
             @ApiResponse(responseCode = "200", description = "식물 수정 정보 조회 성공",
                     content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
                             schema = @Schema(implementation = PlantResponse.EditInfoJsonResponse.class),
-                            examples = @ExampleObject(value = """
+                            examples = @ExampleObject(name = "success", summary = "식물 수정 정보 조회 성공 응답", value = """
                                     {
                                       "timeStamp": "2026-05-12 19:30:00",
                                       "status": 200,
@@ -104,7 +104,7 @@ public class PlantController {
             @ApiResponse(responseCode = "200", description = "식물 수정 성공",
                     content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
                             schema = @Schema(implementation = PlantResponse.EditInfoJsonResponse.class),
-                            examples = @ExampleObject(value = """
+                            examples = @ExampleObject(name = "success", summary = "식물 수정 성공 응답", value = """
                                     {
                                       "timeStamp": "2026-05-12 19:30:00",
                                       "status": 200,
@@ -165,7 +165,7 @@ public class PlantController {
             @ApiResponse(responseCode = "200", description = "식물 상세 조회 성공",
                     content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
                             schema = @Schema(implementation = PlantResponse.DetailJsonResponse.class),
-                            examples = @ExampleObject(value = """
+                            examples = @ExampleObject(name = "success", summary = "식물 상세 조회 성공 응답", value = """
                                     {
                                       "timeStamp": "2026-05-12 19:30:00",
                                       "status": 200,
@@ -202,7 +202,7 @@ public class PlantController {
             @ApiResponse(responseCode = "200", description = "식물 목록 조회 성공",
                     content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
                             schema = @Schema(implementation = PlantResponse.PlantListJsonResponse.class),
-                            examples = @ExampleObject(value = """
+                            examples = @ExampleObject(name = "success", summary = "식물 목록 조회 성공 응답", value = """
                                     {
                                       "timeStamp": "2026-05-12 19:30:00",
                                       "status": 200,
@@ -238,7 +238,7 @@ public class PlantController {
             @ApiResponse(responseCode = "201", description = "식물 생성 성공",
                     content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
                             schema = @Schema(implementation = PlantResponse.CreateJsonResponse.class),
-                            examples = @ExampleObject(value = """
+                            examples = @ExampleObject(name = "success", summary = "식물 생성 성공 응답", value = """
                                     {
                                       "timeStamp": "2026-05-12 19:30:00",
                                       "status": 201,
