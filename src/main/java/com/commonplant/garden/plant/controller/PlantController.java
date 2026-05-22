@@ -1,9 +1,13 @@
 package com.commonplant.garden.plant.controller;
 
 import com.commonplant.garden.common.dto.JsonResponse;
+import com.commonplant.garden.common.exception.BusinessException;
 import com.commonplant.garden.plant.dto.PlantRequest;
 import com.commonplant.garden.plant.dto.PlantResponse;
+import com.commonplant.garden.plant.exception.PlantErrorCode;
 import com.commonplant.garden.plant.service.PlantService;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -13,9 +17,12 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import jakarta.validation.Valid;
+import jakarta.servlet.http.Part;
+import jakarta.validation.ConstraintViolation;
+import jakarta.validation.Validator;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.InvalidMediaTypeException;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -30,6 +37,10 @@ import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
+import java.util.Set;
+import java.util.stream.Collectors;
+
 @RequiredArgsConstructor
 @RestController
 @RequestMapping("/plants")
@@ -37,6 +48,8 @@ import org.springframework.web.multipart.MultipartFile;
 public class PlantController {
 
     private final PlantService plantService;
+    private final ObjectMapper objectMapper;
+    private final Validator validator;
 
     @Operation(summary = "식물 삭제", description = "장소에 속한 식물을 삭제합니다.")
     @ApiResponses({
@@ -147,7 +160,7 @@ public class PlantController {
                                     }
                                     """))
             )
-            @RequestPart(value = "plant", required = false) PlantRequest.UpdateRequest request,
+            @RequestPart(value = "plant", required = false) Part plant,
             @Parameter(
                     description = "식물 이미지 파일(선택)",
                     content = @Content(mediaType = MediaType.MULTIPART_FORM_DATA_VALUE,
@@ -155,6 +168,7 @@ public class PlantController {
             )
             @RequestPart(value = "image", required = false) MultipartFile image
     ) {
+        PlantRequest.UpdateRequest request = readJsonPart(plant, PlantRequest.UpdateRequest.class, false);
         PlantResponse.EditInfoResponse response = plantService.updatePlant(nanoId, placeCode, plantId, request, image);
         return ResponseEntity.ok(new JsonResponse(true, 200, "updatePlant", response));
     }
@@ -282,7 +296,7 @@ public class PlantController {
                                     }
                                     """))
             )
-            @Valid @RequestPart("plant") PlantRequest.CreateRequest request,
+            @RequestPart(value = "plant", required = false) Part plant,
             @Parameter(
                     description = "식물 이미지 파일(선택)",
                     content = @Content(mediaType = MediaType.MULTIPART_FORM_DATA_VALUE,
@@ -290,8 +304,58 @@ public class PlantController {
             )
             @RequestPart(value = "image", required = false) MultipartFile image
     ) {
+        PlantRequest.CreateRequest request = readJsonPart(plant, PlantRequest.CreateRequest.class, true);
         PlantResponse.CreateResponse response = plantService.createPlant(nanoId, request, image);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(new JsonResponse(true, 201, "createPlant", response));
+    }
+
+    private <T> T readJsonPart(Part part, Class<T> requestType, boolean required) {
+        if (part == null || part.getSize() == 0) {
+            if (required) {
+                throw new BusinessException(PlantErrorCode.INVALID_PLANT_REQUEST, "plant 파트는 필수입니다.");
+            }
+            return null;
+        }
+
+        validateJsonContentType(part.getContentType());
+
+        try {
+            T request = objectMapper.readValue(part.getInputStream(), requestType);
+            if (request == null) {
+                throw new BusinessException(PlantErrorCode.INVALID_PLANT_JSON);
+            }
+            validateRequest(request);
+            return request;
+        } catch (JsonProcessingException e) {
+            throw new BusinessException(PlantErrorCode.INVALID_PLANT_JSON, e);
+        } catch (IOException e) {
+            throw new BusinessException(PlantErrorCode.INVALID_PLANT_JSON, e);
+        }
+    }
+
+    private void validateJsonContentType(String contentType) {
+        if (contentType == null) {
+            throw new BusinessException(PlantErrorCode.INVALID_MULTIPART_JSON_CONTENT_TYPE);
+        }
+
+        try {
+            MediaType mediaType = MediaType.parseMediaType(contentType);
+            if (!MediaType.APPLICATION_JSON.includes(mediaType) && !mediaType.getSubtype().endsWith("+json")) {
+                throw new BusinessException(PlantErrorCode.INVALID_MULTIPART_JSON_CONTENT_TYPE);
+            }
+        } catch (InvalidMediaTypeException e) {
+            throw new BusinessException(PlantErrorCode.INVALID_MULTIPART_JSON_CONTENT_TYPE);
+        }
+    }
+
+    private <T> void validateRequest(T request) {
+        Set<ConstraintViolation<T>> violations = validator.validate(request);
+        if (!violations.isEmpty()) {
+            String message = violations.stream()
+                    .map(violation -> violation.getPropertyPath() + ": " + violation.getMessage())
+                    .collect(Collectors.joining(", "));
+            throw new BusinessException(PlantErrorCode.INVALID_PLANT_REQUEST, message);
+        }
     }
 }
