@@ -46,7 +46,7 @@ public class AuthController {
     @PostMapping("/login")
     public ResponseEntity<JsonResponse> login(@Valid @RequestBody AuthRequest.Login request) {
         AuthResponse.Login response = authService.login(request);
-        return ResponseEntity.ok(new JsonResponse(true, 200, "login success", response));
+        return ResponseEntity.ok(new JsonResponse(true, 200, "login", response));
     }
 
     @Operation(
@@ -62,13 +62,13 @@ public class AuthController {
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "회원가입 성공"),
             @ApiResponse(responseCode = "400", description = "[A005] 지원하지 않는 소셜 제공자"),
-            @ApiResponse(responseCode = "401", description = "[A003] 유효하지 않은 signupToken | [A004] 만료된 signupToken (10분 초과)"),
+            @ApiResponse(responseCode = "401", description = "[A006] 유효하지 않은 signupToken | [A004] 만료된 Token (10분 초과)"),
             @ApiResponse(responseCode = "409", description = "[A007] 이미 다른 소셜 계정으로 가입된 이메일 | [A011] 이미 가입된 소셜 계정"),
     })
     @SecurityRequirements
     @PostMapping("/register")
     public ResponseEntity<JsonResponse> register(@Valid @RequestBody AuthRequest.Register request) {
         AuthResponse.Register response = authService.register(request);
-        return ResponseEntity.ok(new JsonResponse(true, 200, "register success", response));
+        return ResponseEntity.ok(new JsonResponse(true, 200, "register", response));
     }
 }

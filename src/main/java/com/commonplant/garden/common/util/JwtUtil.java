@@ -85,7 +85,7 @@ public class JwtUtil {
     public SignupTokenInfo getSignupInfo(String signupToken) {
         Claims claims = validateAndGetClaims(signupToken);
         if (!TYPE_SIGNUP.equals(claims.get(CLAIM_TYPE, String.class))) {
-            throw new BusinessException(AuthErrorCode.INVALID_JWT_TOKEN);
+            throw new BusinessException(AuthErrorCode.INVALID_SIGNUP_TOKEN);
         }
         return new SignupTokenInfo(
                 claims.getSubject(),
@@ -102,7 +102,7 @@ public class JwtUtil {
                     .parseSignedClaims(token)
                     .getPayload();
         } catch (ExpiredJwtException e) {
-            throw new BusinessException(AuthErrorCode.EXPIRED_JWT_TOKEN);
+            throw new BusinessException(AuthErrorCode.EXPIRED_TOKEN);
         } catch (JwtException | IllegalArgumentException e) {
             throw new BusinessException(AuthErrorCode.INVALID_JWT_TOKEN);
         }
