@@ -29,6 +29,8 @@ public interface PlaceService {
 
     String getPlaceNameById(Long placeId);
 
+    String getPlaceAddressById(Long placeId);
+
     Place getPlaceById(Long placeId);
 
     Place getPlaceByCode(String code);
