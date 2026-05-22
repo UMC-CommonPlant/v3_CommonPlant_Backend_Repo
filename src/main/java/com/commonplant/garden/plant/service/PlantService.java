@@ -25,5 +25,7 @@ public interface PlantService {
 
     List<PlantResponse.PlantSummary> getPlantsByPlace(String nanoId, String placeCode);
 
+    List<Long> getPlantIdsByPlace(String nanoId, String placeCode);
+
     PlantResponse.CreateResponse createPlant(String nanoId, PlantRequest.CreateRequest request, MultipartFile image);
 }

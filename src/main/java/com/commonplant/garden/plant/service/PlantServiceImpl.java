@@ -125,6 +125,12 @@ public class PlantServiceImpl implements PlantService {
     }
 
     @Override
+    public List<Long> getPlantIdsByPlace(String nanoId, String placeCode) {
+        Place place = findAccessiblePlace(nanoId, placeCode);
+        return plantRepository.findPlantIdsByPlaceIdOrderByPlantIdxDesc(place.getPlaceIdx());
+    }
+
+    @Override
     @Transactional
     public PlantResponse.CreateResponse createPlant(
             String nanoId,
