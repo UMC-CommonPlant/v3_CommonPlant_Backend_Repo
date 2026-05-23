@@ -10,7 +10,7 @@ public class UserRequest {
 
     @Getter
     @NoArgsConstructor
-    @Schema(description = "사용자 정보 수정 multipart 요청")
+    @Schema(name = "UserUpdateMultipartRequest", description = "사용자 정보 수정 multipart 요청")
     public static class UpdateMultipartRequest {
         @Schema(description = "수정할 사용자 정보(JSON)", implementation = UpdateRequest.class, nullable = true)
         private UpdateRequest user;
@@ -21,7 +21,7 @@ public class UserRequest {
 
     @Getter
     @NoArgsConstructor
-    @Schema(description = "사용자 정보 수정 요청")
+    @Schema(name = "UserUpdateRequest", description = "사용자 정보 수정 요청")
     public static class UpdateRequest {
         @Size(min = 1, max = 20, message = "이름은 1자 이상 20자 이하여야 합니다.")
         @Pattern(
