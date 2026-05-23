@@ -22,6 +22,7 @@ import org.springframework.web.multipart.MultipartFile;
 @SecurityRequirement(name = "bearerAuth")
 public interface UserControllerDocs {
 
+    /* GET /users/{keyword} - 사용자 이름 검색 */
     @Operation(summary = "사용자 이름 검색", description = "키워드로 사용자를 검색합니다.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "조회 성공",
@@ -35,7 +36,7 @@ public interface UserControllerDocs {
                                       "result": [
                                         {
                                           "name": "홍길동",
-                                          "id": "V1StGXR8_Z5jdHi6B-myT",
+                                          "id": "NpGFNGZ3mZGN",
                                           "email": "user@example.com",
                                           "provider": "GOOGLE",
                                           "imgUrl": "https://bucket.s3.ap-northeast-2.amazonaws.com/images/profile.png",
@@ -54,7 +55,7 @@ public interface UserControllerDocs {
     );
 
     // ──────────────────────────────────────────────────────────────────────────
-
+    /* GET /users - 내 정보 조회 */
     @Operation(summary = "내 정보 조회")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "조회 성공",
@@ -67,7 +68,7 @@ public interface UserControllerDocs {
                                       "message": "getUserByNanoId",
                                       "result": {
                                         "name": "홍길동",
-                                        "id": "V1StGXR8_Z5jdHi6B-myT",
+                                        "id": "NpGFNGZ3mZGN",
                                         "email": "user@example.com",
                                         "provider": "GOOGLE",
                                         "imgUrl": "https://bucket.s3.ap-northeast-2.amazonaws.com/images/profile.png",
@@ -84,7 +85,7 @@ public interface UserControllerDocs {
     );
 
     // ──────────────────────────────────────────────────────────────────────────
-
+    /* PUT /users - 내 정보 수정 */
     @Operation(summary = "내 정보 수정", description = "전달한 필드만 수정됩니다. 수정하지 않을 필드는 생략하세요.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "수정 성공",
@@ -97,7 +98,7 @@ public interface UserControllerDocs {
                                       "message": "updateUser",
                                       "result": {
                                         "name": "홍길동",
-                                        "id": "V1StGXR8_Z5jdHi6B-myT",
+                                        "id": "NpGFNGZ3mZGN",
                                         "email": "user@example.com",
                                         "provider": "GOOGLE",
                                         "imgUrl": "https://bucket.s3.ap-northeast-2.amazonaws.com/images/profile-updated.png",
@@ -139,7 +140,7 @@ public interface UserControllerDocs {
     );
 
     // ──────────────────────────────────────────────────────────────────────────
-
+    /* DELETE /users - 회원 탈퇴 */
     @Operation(summary = "회원 탈퇴", description = "Soft delete 처리됩니다. (status: DELETED)")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "탈퇴 성공",
