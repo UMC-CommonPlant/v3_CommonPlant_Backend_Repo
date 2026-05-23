@@ -9,7 +9,7 @@ public interface UserService {
 
     UserResponse getUserByNanoId(String nanoId);
 
-    UserResponse createUser(UserRequest.CreateRequest request);
+    List<UserResponse> searchUserByName(String keyword);
 
     UserResponse updateUser(String nanoId, UserRequest.UpdateRequest request);
 

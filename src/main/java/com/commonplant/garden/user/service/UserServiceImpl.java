@@ -28,24 +28,8 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    @Transactional
-    public UserResponse createUser(UserRequest.CreateRequest request) {
-        if (userRepository.existsByEmail(request.getEmail())) {
-            throw new BusinessException(UserErrorCode.DUPLICATE_EMAIL);
-        }
-        if (userRepository.existsByProviderAndProviderId(request.getProvider(), request.getProviderId())) {
-            throw new BusinessException(UserErrorCode.DUPLICATE_PROVIDER);
-        }
-        User user = User.builder()
-                .nanoId(IdUtil.generateNanoId())
-                .name(request.getName())
-                .email(request.getEmail())
-                .introduction(request.getIntroduction())
-                .provider(request.getProvider())
-                .providerId(request.getProviderId())
-                .imgUrl(request.getImgUrl())
-                .build();
-        return UserResponse.from(userRepository.save(user));
+    public List<UserResponse> searchUserByName(String keyword){
+        return searchActiveUsersByUsername(keyword);
     }
 
     @Override
