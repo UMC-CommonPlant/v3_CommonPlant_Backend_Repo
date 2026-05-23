@@ -1,7 +1,7 @@
 package com.commonplant.garden.auth.service;
 
-import com.commonplant.garden.auth.dto.request.AuthRequest;
-import com.commonplant.garden.auth.dto.response.AuthResponse;
+import com.commonplant.garden.auth.dto.AuthRequest;
+import com.commonplant.garden.auth.dto.AuthResponse;
 import com.commonplant.garden.auth.exception.AuthErrorCode;
 import com.commonplant.garden.auth.service.social.GoogleTokenVerifier;
 import com.commonplant.garden.auth.service.social.KakaoTokenVerifier;
@@ -36,7 +36,7 @@ public class AuthServiceImpl implements AuthService {
      */
     @Override
     @Transactional
-    public AuthResponse login(AuthRequest.Login request) {
+    public Object login(AuthRequest.Login request) {
         SocialUserInfo socialUser = verifySocialToken(request.getProvider(), request.getToken());
         log.info("{} login verify: providerId={}", request.getProvider(), socialUser.getProviderId());
 
@@ -46,7 +46,7 @@ public class AuthServiceImpl implements AuthService {
                     String accessToken  = jwtUtil.generateAccessToken(user.getNanoId());
                     String refreshToken = jwtUtil.generateRefreshToken(user.getNanoId());
                     user.updateRefreshToken(refreshToken);
-                    return AuthResponse.builder()
+                    return (Object) AuthResponse.LoginSuccess.builder()
                             .isNewUser(false)
                             .accessToken(accessToken)
                             .refreshToken(refreshToken)
@@ -61,7 +61,7 @@ public class AuthServiceImpl implements AuthService {
                             request.getProvider().name(),
                             socialUser.getEmail()
                     );
-                    return AuthResponse.builder()
+                    return AuthResponse.LoginFailed.builder()
                             .isNewUser(true)
                             .signupToken(signupToken)
                             .suggestedName(socialUser.getName())
@@ -76,7 +76,7 @@ public class AuthServiceImpl implements AuthService {
      */
     @Override
     @Transactional
-    public AuthResponse register(AuthRequest.Register request) {
+    public AuthResponse.Register register(AuthRequest.Register request) {
         JwtUtil.SignupTokenInfo info = jwtUtil.getSignupInfo(request.getSignupToken());
         String providerId = info.providerId();
         Provider provider = Provider.from(info.provider());
@@ -96,7 +96,6 @@ public class AuthServiceImpl implements AuthService {
                 .email(email)
                 .provider(provider)
                 .providerId(providerId)
-                .imgUrl(request.getImgUrl())
                 .introduction(request.getIntroduction())
                 .build();
         userRepository.save(user);
@@ -105,7 +104,7 @@ public class AuthServiceImpl implements AuthService {
         String refreshToken = jwtUtil.generateRefreshToken(user.getNanoId());
         user.updateRefreshToken(refreshToken);
 
-        return AuthResponse.builder()
+        return AuthResponse.Register.builder()
                 .isNewUser(true)
                 .accessToken(accessToken)
                 .refreshToken(refreshToken)
