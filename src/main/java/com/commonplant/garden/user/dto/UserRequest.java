@@ -38,8 +38,5 @@ public class UserRequest {
         )
         @Schema(description = "200자 이내 (비허용: <>\"'%;()&+\\)", example = "몬스테라를 키우는 식집사입니다.", nullable = true)
         private String introduction;
-
-        @Schema(description = "기존 프로필 이미지 URL (새 이미지 업로드 시 무시됨)", example = "https://bucket.s3.ap-northeast-2.amazonaws.com/images/profile.png", nullable = true)
-        private String imgUrl;
     }
 }

@@ -100,17 +100,21 @@ public class AuthServiceImpl implements AuthService {
             throw new BusinessException(AuthErrorCode.DUPLICATE_EMAIL);
         }
 
-        /** image key 로 변경 필요 **/
-        String imgUrl = uploadImageIfPresent(genNanoId, image);
+
+        /** 사용자 정보 저장 **/
         User user = User.builder()
                 .nanoId(genNanoId)
                 .name(request.getName())
                 .email(email)
-                .imgUrl(imgUrl)
                 .provider(provider)
                 .providerId(providerId)
                 .introduction(request.getIntroduction())
                 .build();
+        userRepository.save(user);
+
+        /** s3Service의 경우 사용자 도메인이 있어야 업로드 가능 **/
+        String imgKey = uploadImageIfPresent(user.getNanoId(), image);
+        user.updateImageKey(imgKey);
         userRepository.save(user);
 
         String accessToken  = jwtUtil.generateAccessToken(user.getNanoId());
@@ -139,6 +143,7 @@ public class AuthServiceImpl implements AuthService {
         if (image == null || image.isEmpty()) {
             return null;
         }
+        log.info("uploadImageIfPresent");
         return s3Service.uploadImage(nanoId, image).getKey();
     }
 
