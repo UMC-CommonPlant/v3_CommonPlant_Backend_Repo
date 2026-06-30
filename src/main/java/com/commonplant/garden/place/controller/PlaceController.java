@@ -132,13 +132,41 @@ public class PlaceController {
                                         "code": "ABCabc",
                                         "address": "서울특별시 ...",
                                         "imgUrl": "https://bucket.s3.ap-northeast-2.amazonaws.com/images/user-nano-id/garden.png?X-Amz-Algorithm=...",
-                                        "owner": true,
                                         "userList": [
                                           {
                                             "name": "홍길동",
-                                            "image": "https://.../user.png"
+                                            "image": "https://bucket.s3.ap-northeast-2.amazonaws.com/images/user-nano-id/user.png"
+                                          },
+                                          {
+                                            "name": "김철수",
+                                            "image": "https://bucket.s3.ap-northeast-2.amazonaws.com/images/user-nano-id/user2.png"
                                           }
-                                        ]
+                                        ],
+                                        "plantList": [
+                                          {
+                                            "plantId": 1,
+                                            "scientificNameKo": "몬스테라",
+                                            "scientificNameEn": "Monstera deliciosa",
+                                            "registeredAt": "2026-06-30T16:55:51.387461",
+                                            "lastWateredDate": "2026-05-12",
+                                            "imageUrl": "https://bucket.s3.ap-northeast-2.amazonaws.com/images/user-nano-id/monstera.png?X-Amz-Algorithm=...",
+                                            "memo": "새 잎이 올라옴",
+                                            "placeName": "거실 정원",
+                                            "plantInfo": "햇빛이 잘 드는 거실에서 키우는 몬스테라입니다."
+                                          },
+                                          {
+                                            "plantId": 2,
+                                            "scientificNameKo": "고무나무",
+                                            "scientificNameEn": "Ficus elastica",
+                                            "registeredAt": "2026-06-29T10:30:00",
+                                            "lastWateredDate": "2026-06-30",
+                                            "imageUrl": "https://bucket.s3.ap-northeast-2.amazonaws.com/images/user-nano-id/ficus.png?X-Amz-Algorithm=...",
+                                            "memo": null,
+                                            "placeName": "거실 정원",
+                                            "plantInfo": null
+                                          }
+                                        ],
+                                        "owner": true
                                       },
                                       "success": true
                                     }
