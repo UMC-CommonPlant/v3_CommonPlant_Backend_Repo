@@ -1,7 +1,7 @@
 package com.commonplant.garden.place.dto;
 
 import com.commonplant.garden.place.entity.Place;
-// import com.commonplant.garden.plant.dto.PlantDto;
+import com.commonplant.garden.plant.dto.PlantResponse;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
@@ -90,7 +90,8 @@ public class PlaceDto {
         @Schema(description = "소속 사용자 목록")
         private List<getPlaceResUser> userList;
 
-        // private List<PlantDto.getMyGardenPlantListRes> plantList;
+        @Schema(description = "장소에 있는 식물 목록")
+        private List<PlantResponse.DetailResponse> plantList;
     }
 
     @Data

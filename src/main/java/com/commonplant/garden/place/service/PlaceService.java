@@ -10,8 +10,6 @@ public interface PlaceService {
 
     String create(String nanoId, PlaceDto.createPlaceReq req, MultipartFile image);
 
-    PlaceDto.getPlaceRes getPlace(String nanoId, String code);
-
     List<PlaceDto.getPlaceListRes> getPlaceList(String nanoId);
 
     PlaceDto.getPlaceGridRes getPlaceGrid(String nanoId, String code);

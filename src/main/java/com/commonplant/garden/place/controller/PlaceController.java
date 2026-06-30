@@ -2,6 +2,7 @@ package com.commonplant.garden.place.controller;
 
 import com.commonplant.garden.common.dto.JsonResponse;
 import com.commonplant.garden.place.dto.PlaceDto;
+import com.commonplant.garden.place.facade.PlaceFacade;
 import com.commonplant.garden.place.service.PlaceService;
 // import com.commonplant.garden.plant.dto.PlantDto;
 import com.commonplant.garden.user.dto.UserResponse;
@@ -33,6 +34,7 @@ import java.util.List;
 public class PlaceController {
 
     private final PlaceService placeService;
+    private final PlaceFacade placeFacade;
     private final UserService userService;
 
     @Operation(
@@ -172,7 +174,7 @@ public class PlaceController {
         log.info("[API] getPlace");
         UserResponse response = userService.getUserByNanoId(nanoId);
 
-        PlaceDto.getPlaceRes res = placeService.getPlace(response.getId(), code);
+        PlaceDto.getPlaceRes res = placeFacade.getPlace(response.getId(), code);
         return ResponseEntity.ok(new JsonResponse(true, 200, "getPlace", res));
     }
 

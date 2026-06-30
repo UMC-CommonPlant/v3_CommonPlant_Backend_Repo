@@ -84,37 +84,6 @@ public class PlaceServiceImpl implements PlaceService {
 
     @Override
     @Transactional
-    public PlaceDto.getPlaceRes getPlace(String nanoId, String code) {
-        User user = userService.findActiveUserByNanoId(nanoId);
-
-        belongUserOnPlace(user.getNanoId(), code);
-        Place place = getPlaceByCode(code);
-
-        List<PlaceDto.getPlaceResUser> userList =
-                belongRepository.getUserListByPlaceCode(code)
-                        .orElseThrow(() -> new BusinessException(PlaceErrorCode.PLACE_NOT_FOUND))
-                        .stream()
-                        .map(u -> new PlaceDto.getPlaceResUser(u.getName(), u.getImgUrl()))
-                        .collect(Collectors.toList());
-
-        PlaceDto.getPlaceRes res = PlaceDto.getPlaceRes.builder()
-                .name(place.getName())
-                .address(place.getAddress())
-                .code(place.getCode())
-                .isOwner(false)
-                .imgUrl(resolveImageUrl(place.getImgUrl()))
-                .userList(userList)
-                .build();
-
-        if (place.getOwner().getUserIdx().equals(user.getUserIdx())) {
-            res.setOwner(true);
-        }
-
-        return res;
-    }
-
-    @Override
-    @Transactional
     public List<PlaceDto.getPlaceListRes> getPlaceList(String nanoId) {
         User user = userService.findActiveUserByNanoId(nanoId);
 
