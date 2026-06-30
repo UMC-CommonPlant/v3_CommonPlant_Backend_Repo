@@ -33,10 +33,10 @@ public class AuthController implements AuthControllerDocs {
     @PostMapping(value = "/register",
             consumes = MediaType.MULTIPART_FORM_DATA_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<JsonResponse> register(
-            @Valid @RequestPart(value = "register") AuthRequest.Register request,
+            @Valid @RequestPart(value = "register") AuthRequest.RegisterRequest request,
             @RequestPart(value = "image", required = false) MultipartFile image
     ) {
-        AuthResponse.Register response = authService.register(request);
+        AuthResponse.RegisterResponse response = authService.register(request, image);
         return ResponseEntity.ok(new JsonResponse(true, 200, "register", response));
     }
 }
