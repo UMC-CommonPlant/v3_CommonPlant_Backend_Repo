@@ -31,13 +31,13 @@ public class UserResponse {
     @Schema(description = "자기소개", example = "몬스테라를 키우는 식집사입니다.", nullable = true)
     private String introduction;
 
-    public static UserResponse from(User user) {
+    public static UserResponse from(User user, String imgUrl) {
         return UserResponse.builder()
                 .name(user.getName())
                 .id(user.getNanoId())
                 .email(user.getEmail())
                 .provider(user.getProvider())
-                .imgUrl(user.getImgUrl())
+                .imgUrl(imgUrl)
                 .introduction(user.getIntroduction())
                 .build();
     }

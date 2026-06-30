@@ -122,7 +122,7 @@ public interface AuthControllerDocs {
             @Parameter(
                     description = "회원가입 정보(JSON)",
                     content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
-                            schema = @Schema(implementation = AuthRequest.Register.class),
+                            schema = @Schema(implementation = AuthRequest.RegisterRequest.class),
                             examples = @ExampleObject(value = """
                                     {
                                       "signupToken": "eyJhbGciOiJIUzI1NiJ9...",
@@ -130,7 +130,7 @@ public interface AuthControllerDocs {
                                       "introduction": "몬스테라를 키우는 식집사입니다."
                                     }
                                     """))
-            ) @Valid AuthRequest.Register request,
+            ) @Valid AuthRequest.RegisterRequest request,
             @Parameter(
                     description = "사용자 프로필 이미지(선택)",
                     content = @Content(mediaType = MediaType.MULTIPART_FORM_DATA_VALUE,

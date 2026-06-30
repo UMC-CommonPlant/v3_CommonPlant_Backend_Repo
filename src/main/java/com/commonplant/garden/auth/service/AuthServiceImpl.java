@@ -9,6 +9,10 @@ import com.commonplant.garden.auth.service.social.SocialUserInfo;
 import com.commonplant.garden.common.exception.BusinessException;
 import com.commonplant.garden.common.util.IdUtil;
 import com.commonplant.garden.common.util.JwtUtil;
+import com.commonplant.garden.plant.dto.PlantRequest;
+import com.commonplant.garden.plant.exception.PlantErrorCode;
+import com.commonplant.garden.s3.entity.Image;
+import com.commonplant.garden.s3.service.S3Service;
 import com.commonplant.garden.user.entity.User;
 import com.commonplant.garden.user.entity.UserRepository;
 import com.commonplant.garden.user.enums.Provider;
@@ -17,6 +21,10 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.util.List;
 
 @Slf4j
 @Service
@@ -28,6 +36,7 @@ public class AuthServiceImpl implements AuthService {
     private final KakaoTokenVerifier kakaoTokenVerifier;
     private final UserRepository userRepository;
     private final JwtUtil jwtUtil;
+    private final S3Service s3Service;
 
     /**
      * 소셜 로그인
@@ -76,11 +85,12 @@ public class AuthServiceImpl implements AuthService {
      */
     @Override
     @Transactional
-    public AuthResponse.Register register(AuthRequest.Register request) {
+    public AuthResponse.RegisterResponse register(AuthRequest.RegisterRequest request, MultipartFile image) {
         JwtUtil.SignupTokenInfo info = jwtUtil.getSignupInfo(request.getSignupToken());
         String providerId = info.providerId();
         Provider provider = Provider.from(info.provider());
         String email      = info.email();
+        String genNanoId = IdUtil.generateNanoId();
 
         // signupToken 재사용 방지: 이미 가입된 경우 차단
         if (userRepository.existsByProviderAndProviderId(provider, providerId)) {
@@ -90,8 +100,10 @@ public class AuthServiceImpl implements AuthService {
             throw new BusinessException(AuthErrorCode.DUPLICATE_EMAIL);
         }
 
+
+        /** 사용자 정보 저장 **/
         User user = User.builder()
-                .nanoId(IdUtil.generateNanoId())
+                .nanoId(genNanoId)
                 .name(request.getName())
                 .email(email)
                 .provider(provider)
@@ -100,11 +112,16 @@ public class AuthServiceImpl implements AuthService {
                 .build();
         userRepository.save(user);
 
+        /** s3Service의 경우 사용자 도메인이 있어야 업로드 가능 **/
+        String imgKey = uploadImageIfPresent(user.getNanoId(), image);
+        user.updateImageKey(imgKey);
+        userRepository.save(user);
+
         String accessToken  = jwtUtil.generateAccessToken(user.getNanoId());
         String refreshToken = jwtUtil.generateRefreshToken(user.getNanoId());
         user.updateRefreshToken(refreshToken);
 
-        return AuthResponse.Register.builder()
+        return AuthResponse.RegisterResponse.builder()
                 .isNewUser(true)
                 .accessToken(accessToken)
                 .refreshToken(refreshToken)
@@ -120,4 +137,85 @@ public class AuthServiceImpl implements AuthService {
             default     -> throw new BusinessException(AuthErrorCode.UNSUPPORTED_PROVIDER);
         };
     }
+
+    // -- S3 helper Method---------------------------------------------
+    private String uploadImageIfPresent(String nanoId, MultipartFile image) {
+        if (image == null || image.isEmpty()) {
+            return null;
+        }
+        log.info("uploadImageIfPresent");
+        return s3Service.uploadImage(nanoId, image).getKey();
+    }
+
+
+
+    private String resolveUpdatedImageKey(
+            String nanoId,
+            String existingImageKey,
+            PlantRequest.UpdateRequest request,
+            MultipartFile image
+    ) {
+        if (hasFile(image)) {
+            if (!StringUtils.hasText(existingImageKey)) {
+                return s3Service.uploadImage(nanoId, image).getKey();
+            }
+            return s3Service.updateImage(nanoId, existingImageKey, image).getKey();
+        }
+
+        if (!StringUtils.hasText(existingImageKey)) {
+            validateAbsentImageKey(request);
+            return null;
+        }
+
+        if (hasSameImageKey(request, existingImageKey)) {
+            return existingImageKey;
+        }
+
+        if (hasRequestedImageKey(request)) {
+            throw new BusinessException(PlantErrorCode.INVALID_IMAGE_KEY);
+        }
+
+        deleteImageIfPresent(nanoId, existingImageKey);
+        return null;
+    }
+
+    private boolean hasFile(MultipartFile image) {
+        return image != null && !image.isEmpty();
+    }
+
+    private boolean isEmptyFile(MultipartFile image) {
+        return image == null || image.isEmpty();
+    }
+
+    private boolean hasRequestedImageKey(PlantRequest.UpdateRequest request) {
+        return request != null && StringUtils.hasText(request.getImageKey());
+    }
+
+    private boolean hasSameImageKey(PlantRequest.UpdateRequest request, String existingImageKey) {
+        return hasRequestedImageKey(request) && request.getImageKey().trim().equals(existingImageKey);
+    }
+
+    private void validateAbsentImageKey(PlantRequest.UpdateRequest request) {
+        if (hasRequestedImageKey(request)) {
+            throw new BusinessException(PlantErrorCode.INVALID_IMAGE_KEY);
+        }
+    }
+
+    private void deleteImageIfPresent(String nanoId, String imageKey) {
+        if (StringUtils.hasText(imageKey)) {
+            s3Service.deleteImage(nanoId, imageKey);
+        }
+    }
+
+
+
+    private String resolveImageUrl(String imageKey) {
+        if (!StringUtils.hasText(imageKey)) {
+            return null;
+        }
+        return s3Service.getImageUrl(imageKey);
+    }
+
+
+
 }

@@ -4,6 +4,7 @@ import com.commonplant.garden.common.dto.JsonResponse;
 import com.commonplant.garden.user.dto.UserRequest;
 import com.commonplant.garden.user.dto.UserResponse;
 import com.commonplant.garden.user.service.UserService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -12,7 +13,6 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
@@ -45,10 +45,10 @@ public class UserController implements UserControllerDocs {
     @PutMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<JsonResponse> updateUser(
             @AuthenticationPrincipal String nanoId,
-            @RequestBody UserRequest.UpdateRequest request,
+            @Valid @RequestPart(value = "user", required = false) UserRequest.UpdateRequest request,
             @RequestPart(value = "image", required = false) MultipartFile image
     ) {
-        UserResponse response = userService.updateUser(nanoId, request);
+        UserResponse response = userService.updateUser(nanoId, request, image);
         return ResponseEntity.ok(new JsonResponse(true, 200, "updateUser", response));
     }
 

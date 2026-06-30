@@ -30,7 +30,7 @@ public class AuthResponse {
     @Schema(description = "회원가입 성공 응답")
     public static class RegisterJsonResponse extends SuccessJsonResponse {
         @Schema(description = "응답 데이터")
-        private Register result;
+        private RegisterResponse result;
     }
 
     @Getter
@@ -87,7 +87,7 @@ public class AuthResponse {
     @Getter
     @Builder
     @Schema(description = "회원가입 응답")
-    public static class Register {
+    public static class RegisterResponse {
         @Schema(description = "신규 유저 여부 (항상 false)", example = "false")
         private boolean isNewUser;
 

@@ -12,7 +12,7 @@ import lombok.NoArgsConstructor;
 
 public class AuthRequest {
     public static final int TOKEN_MIM_LENGTH = 512;
-    public static final int NAME_MIN_LENGTH = 20;
+    public static final int NAME_MIN_LENGTH = 1;
     public static final int NAME_MAX_LENGTH = 20;
     public static final int INTRODUCTION_MAX_LENGTH = 200;
 
@@ -20,9 +20,9 @@ public class AuthRequest {
     @NoArgsConstructor
     @Schema(description = "회원가입 multipart 요청")
     public static class RegisterMultipartRequest {
-        @Schema(description = "회원가입 정보(JSON)", implementation = Register.class,
+        @Schema(description = "회원가입 정보(JSON)", implementation = RegisterRequest.class,
                 requiredMode = Schema.RequiredMode.REQUIRED)
-        private Register register;
+        private RegisterRequest register;
 
         @Schema(description = "사용자 프로필 이미지(선택)", type = "string", format = "binary", nullable = true)
         private String image;
@@ -48,7 +48,7 @@ public class AuthRequest {
     @NoArgsConstructor
     @AllArgsConstructor
     @Schema(description = "회원가입 요청")
-    public static class Register {
+    public static class RegisterRequest {
         /** login 응답으로 받은 signupToken */
         @NotBlank
         @Size(max = TOKEN_MIM_LENGTH, message = "signupToken은 512자를 초과할 수 없습니다.")
