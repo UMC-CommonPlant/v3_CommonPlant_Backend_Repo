@@ -1,8 +1,5 @@
 # [prod] 프로필: AWS RDS(PostgreSQL) 사용
 spring:
-  config:
-    activate:
-      on-profile: prod
   datasource:
     url: jdbc:postgresql://${RDS_HOSTNAME}:${RDS_PORT:5432}/${RDS_DB_NAME}
     driver-class-name: org.postgresql.Driver
@@ -10,16 +7,5 @@ spring:
     password: ${RDS_PASSWORD}
   jpa:
     hibernate:
-      ddl-auto: validate
+      ddl-auto: validate # update
     show-sql: false
-
-s3:
-  bucket: ${S3_BUCKET_NAME}
-  presigned-url-expiration-minutes: 10
-  image:
-    max-upload-count: 5
-    max-size-bytes: 10485760
-    allowed-content-types:
-      - image/jpeg
-      - image/png
-      - image/webp

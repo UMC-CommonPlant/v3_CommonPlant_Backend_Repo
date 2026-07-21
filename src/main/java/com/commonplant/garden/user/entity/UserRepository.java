@@ -4,6 +4,7 @@ import com.commonplant.garden.user.enums.Provider;
 import com.commonplant.garden.user.enums.UserStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 
+import java.util.List;
 import java.util.Optional;
 
 public interface UserRepository extends JpaRepository<User, Long> {
@@ -15,4 +16,6 @@ public interface UserRepository extends JpaRepository<User, Long> {
     boolean existsByProviderAndProviderId(Provider provider, String providerId);
 
     Optional<User> findByProviderAndProviderIdAndStatus(Provider provider, String providerId, UserStatus status);
+
+    List<User> findByNameContainingAndStatus(String name, UserStatus status);
 }

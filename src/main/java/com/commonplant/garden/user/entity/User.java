@@ -41,6 +41,7 @@ public class User extends BaseTime {
     @Column(name = "provider_id")
     private String providerId;
 
+    // 프로필 이미지의 S3 객체 key 를 저장한다. 응답 시 presigned URL 로 변환한다.
     @Column(name = "img_url", nullable = true)
     private String imgUrl;
 
@@ -50,21 +51,25 @@ public class User extends BaseTime {
     // 소셜 로그인 신규 유저 생성
     @Builder
     public User(String nanoId, String name, String email, String introduction,
-                Provider provider, String providerId, String imgUrl) {
+                Provider provider, String providerId) {
         this.nanoId = nanoId;
         this.name = name;
         this.email = email;
         this.introduction = introduction;
         this.provider = provider;
         this.providerId = providerId;
-        this.imgUrl = imgUrl;
         this.status = UserStatus.ACTIVE;
     }
 
-    public void updateProfile(String name, String introduction, String imgUrl) {
+    public void updateProfile(String name, String introduction) {
         if (name != null) this.name = name;
         if (introduction != null) this.introduction = introduction;
-        if (imgUrl != null) this.imgUrl = imgUrl;
+    }
+
+
+    /** 프로필 이미지 key 교체. null 이면 이미지 제거를 의미한다. */
+    public void updateImageKey(String imageKey) {
+        this.imgUrl = imageKey;
     }
 
     public void updateRefreshToken(String refreshToken) {

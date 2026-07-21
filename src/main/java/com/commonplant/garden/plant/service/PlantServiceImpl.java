@@ -6,12 +6,16 @@ import com.commonplant.garden.plant.dto.PlantResponse;
 import com.commonplant.garden.plant.entity.Plant;
 import com.commonplant.garden.plant.entity.PlantRepository;
 import com.commonplant.garden.plant.exception.PlantErrorCode;
+import com.commonplant.garden.place.entity.Place;
+import com.commonplant.garden.place.service.PlaceService;
+import com.commonplant.garden.s3.service.S3Service;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Slice;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -24,11 +28,13 @@ public class PlantServiceImpl implements PlantService {
     private static final int MAX_PAGE_SIZE = 50;
 
     private final PlantRepository plantRepository;
+    private final PlaceService placeService;
+    private final S3Service s3Service;
 
     @Override
     @Transactional
-    public PlantResponse.DeleteResponse deletePlant(String nanoId, Long placeId, Long plantId) {
-        Plant plant = findAccessiblePlant(nanoId, placeId, plantId);
+    public PlantResponse.DeleteResponse deletePlant(String nanoId, String placeCode, Long plantId) {
+        Plant plant = findAccessiblePlant(nanoId, placeCode, plantId);
         Long deletedPlantId = plant.getPlantIdx();
 
         // 현재 Plant는 imageKey만 보관한다. S3 객체/이미지 메타데이터 삭제는
@@ -39,94 +45,118 @@ public class PlantServiceImpl implements PlantService {
     }
 
     @Override
-    public PlantResponse.EditInfoResponse getPlantEditInfo(String nanoId, Long placeId, Long plantId) {
-        Plant plant = findAccessiblePlant(nanoId, placeId, plantId);
-        return PlantResponse.EditInfoResponse.from(plant);
+    public PlantResponse.EditInfoResponse getPlantEditInfo(String nanoId, Long plantId) {
+        Plant plant = findAccessiblePlant(nanoId, plantId);
+        return PlantResponse.EditInfoResponse.of(plant, resolveImageUrl(plant.getImageKey()));
     }
 
     @Override
     @Transactional
     public PlantResponse.EditInfoResponse updatePlant(
             String nanoId,
-            Long placeId,
+            String placeCode,
             Long plantId,
-            PlantRequest.UpdateRequest request
+            PlantRequest.UpdateRequest request,
+            MultipartFile image
     ) {
-        validateUpdateRequest(request);
-        Plant plant = findAccessiblePlant(nanoId, placeId, plantId);
+        Plant plant = findAccessiblePlant(nanoId, placeCode, plantId);
+        validateUpdateRequest(plant, request, image);
+        String imageKey = resolveUpdatedImageKey(nanoId, plant.getImageKey(), request, image);
 
         plant.updateProfile(
-                request.getImageKey(),
-                request.getNickname(),
-                request.getLastWateredDate()
+                request == null ? null : request.getNickname(),
+                request == null ? null : request.getLastWateredDate()
         );
+        plant.updateImageKey(imageKey);
 
-        return PlantResponse.EditInfoResponse.from(plant);
+        return PlantResponse.EditInfoResponse.of(plant, resolveImageUrl(plant.getImageKey()));
     }
 
     @Override
-    public PlantResponse.DetailResponse getPlant(String nanoId, Long placeId, Long plantId) {
-        Plant plant = findAccessiblePlant(nanoId, placeId, plantId);
+    public PlantResponse.DetailResponse getPlant(String nanoId, Long plantId) {
+        Plant plant = findAccessiblePlant(nanoId, plantId);
+        Place place = placeService.getPlaceById(plant.getPlaceId());
 
         String memo = findPlantMemo(plant.getPlantIdx());
-        String placeName = findPlaceName(placeId);
-        return PlantResponse.DetailResponse.of(plant, memo, placeName);
+        return PlantResponse.DetailResponse.of(plant, memo, place.getName(), resolveImageUrl(plant.getImageKey()));
     }
 
     @Override
     public PlantResponse.PlantListResponse getPlants(String nanoId, int page, int size) {
         List<Long> placeIds = findAccessiblePlaceIds(nanoId);
+        int normalizedPage = normalizePage(page);
+        int normalizedSize = normalizeSize(size);
         if (placeIds.isEmpty()) {
             return PlantResponse.PlantListResponse.builder()
-                    .plants(List.of())
-                    .hasNext(false)
+                    .content(PlantResponse.PlantPageContent.builder()
+                            .items(List.of())
+                            .totalCount(0)
+                            .page(normalizedPage)
+                            .size(normalizedSize)
+                            .build())
                     .build();
         }
 
-        Slice<Plant> plants = plantRepository.findAllByPlaceIdInOrderByPlantIdxDesc(
+        Page<Plant> plants = plantRepository.findAllByPlaceIdInOrderByPlantIdxDesc(
                 placeIds,
-                PageRequest.of(normalizePage(page), normalizeSize(size))
+                PageRequest.of(normalizedPage, normalizedSize)
         );
 
         return PlantResponse.PlantListResponse.builder()
-                .plants(plants.getContent().stream()
-                        .map(PlantResponse.PlantSummary::from)
-                        .toList())
-                .hasNext(plants.hasNext())
+                .content(PlantResponse.PlantPageContent.builder()
+                        .items(plants.getContent().stream()
+                                .map(plant -> PlantResponse.PlantSummary.of(plant, resolveImageUrl(plant.getImageKey())))
+                                .toList())
+                        .totalCount(plants.getTotalElements())
+                        .page(normalizedPage)
+                        .size(normalizedSize)
+                        .build())
                 .build();
     }
 
     @Override
+    public List<PlantResponse.PlantSummary> getPlantsByPlace(String nanoId, String placeCode) {
+        Place place = findAccessiblePlace(nanoId, placeCode);
+
+        return plantRepository.findAllByPlaceIdOrderByPlantIdxDesc(place.getPlaceIdx())
+                .stream()
+                .map(plant -> PlantResponse.PlantSummary.of(plant, resolveImageUrl(plant.getImageKey())))
+                .toList();
+    }
+
+    @Override
+    public List<Long> getPlantIdsByPlace(String nanoId, String placeCode) {
+        Place place = findAccessiblePlace(nanoId, placeCode);
+        return plantRepository.findPlantIdsByPlaceIdOrderByPlantIdxDesc(place.getPlaceIdx());
+    }
+
+    @Override
     @Transactional
-    public PlantResponse.CreateResponse createPlant(String nanoId, PlantRequest.CreateRequest request) {
-        Long placeId = resolveAccessiblePlaceId(nanoId, request.getPlaceId());
+    public PlantResponse.CreateResponse createPlant(
+            String nanoId,
+            PlantRequest.CreateRequest request,
+            MultipartFile image
+    ) {
+        Place place = findAccessiblePlace(nanoId, request.getPlaceCode());
+        String imageKey = uploadImageIfPresent(nanoId, image);
 
         Plant plant = Plant.builder()
-                .placeId(placeId)
+                .placeId(place.getPlaceIdx())
                 .scientificNameKo(request.getScientificNameKo())
                 .scientificNameEn(request.getScientificNameEn())
                 .nickname(request.getNickname())
                 .lastWateredDate(request.getLastWateredDate())
-                .imageKey(request.getImageKey())
+                .imageKey(imageKey)
                 .description(request.getDescription())
                 .build();
 
         return PlantResponse.CreateResponse.from(plantRepository.save(plant));
     }
 
-    private Long resolveAccessiblePlaceId(String nanoId, Long placeId) {
-        validatePlaceAccess(nanoId, placeId);
-
-        // TODO: place 도메인 구현 후 nanoId가 속해 있는 place list를 반환한다.
-        // TODO: 사용자가 place를 선택한 후, 해당 place 접근 권한 검증을 호출한다.
-        // TODO: place의 id를 반환한다.
-        return placeId;
-    }
-
-    private void validatePlaceAccess(String nanoId, Long placeId) {
-        if (!findAccessiblePlaceIds(nanoId).contains(placeId)) {
-            throw new BusinessException(PlantErrorCode.PLACE_ACCESS_DENIED);
-        }
+    private Place findAccessiblePlace(String nanoId, String placeCode) {
+        Place place = placeService.getPlaceByCode(placeCode);
+        placeService.belongUserOnPlace(nanoId, placeCode);
+        return place;
     }
 
     private void validatePlantBelongsToPlace(Plant plant, Long placeId) {
@@ -135,27 +165,96 @@ public class PlantServiceImpl implements PlantService {
         }
     }
 
-    private void validateUpdateRequest(PlantRequest.UpdateRequest request) {
-        if (request == null || (
-                request.getImageKey() == null
-                        && request.getNickname() == null
-                        && request.getLastWateredDate() == null
-        )) {
+    private void validateUpdateRequest(Plant plant, PlantRequest.UpdateRequest request, MultipartFile image) {
+        if (!StringUtils.hasText(plant.getImageKey()) && request == null && isEmptyFile(image)) {
             throw new BusinessException(PlantErrorCode.NO_FIELDS_TO_UPDATE);
         }
 
-        if (request.getNickname() != null && !StringUtils.hasText(request.getNickname())) {
+        if (request != null && request.getNickname() != null && !StringUtils.hasText(request.getNickname())) {
             throw new BusinessException(PlantErrorCode.INVALID_NICKNAME);
         }
+    }
 
-        if (request.getImageKey() != null && !StringUtils.hasText(request.getImageKey())) {
+    private String uploadImageIfPresent(String nanoId, MultipartFile image) {
+        if (image == null || image.isEmpty()) {
+            return null;
+        }
+        return s3Service.uploadImage(nanoId, image).getKey();
+    }
+
+    private String resolveUpdatedImageKey(
+            String nanoId,
+            String existingImageKey,
+            PlantRequest.UpdateRequest request,
+            MultipartFile image
+    ) {
+        if (hasFile(image)) {
+            if (!StringUtils.hasText(existingImageKey)) {
+                return s3Service.uploadImage(nanoId, image).getKey();
+            }
+            return s3Service.updateImage(nanoId, existingImageKey, image).getKey();
+        }
+
+        if (!StringUtils.hasText(existingImageKey)) {
+            validateAbsentImageKey(request);
+            return null;
+        }
+
+        if (hasSameImageKey(request, existingImageKey)) {
+            return existingImageKey;
+        }
+
+        if (hasRequestedImageKey(request)) {
+            throw new BusinessException(PlantErrorCode.INVALID_IMAGE_KEY);
+        }
+
+        deleteImageIfPresent(nanoId, existingImageKey);
+        return null;
+    }
+
+    private boolean hasFile(MultipartFile image) {
+        return image != null && !image.isEmpty();
+    }
+
+    private boolean isEmptyFile(MultipartFile image) {
+        return image == null || image.isEmpty();
+    }
+
+    private boolean hasRequestedImageKey(PlantRequest.UpdateRequest request) {
+        return request != null && StringUtils.hasText(request.getImageKey());
+    }
+
+    private boolean hasSameImageKey(PlantRequest.UpdateRequest request, String existingImageKey) {
+        return hasRequestedImageKey(request) && request.getImageKey().trim().equals(existingImageKey);
+    }
+
+    private void validateAbsentImageKey(PlantRequest.UpdateRequest request) {
+        if (hasRequestedImageKey(request)) {
             throw new BusinessException(PlantErrorCode.INVALID_IMAGE_KEY);
         }
     }
 
-    private Plant findAccessiblePlant(String nanoId, Long placeId, Long plantId) {
-        validatePlaceAccess(nanoId, placeId);
+    private void deleteImageIfPresent(String nanoId, String imageKey) {
+        if (StringUtils.hasText(imageKey)) {
+            s3Service.deleteImage(nanoId, imageKey);
+        }
+    }
 
+    private Plant findAccessiblePlant(String nanoId, String placeCode, Long plantId) {
+        Place place = findAccessiblePlace(nanoId, placeCode);
+        return findPlantBelongsToPlace(place.getPlaceIdx(), plantId);
+    }
+
+    private Plant findAccessiblePlant(String nanoId, Long plantId) {
+        Plant plant = plantRepository.findById(plantId)
+                .orElseThrow(() -> new BusinessException(PlantErrorCode.PLANT_NOT_FOUND));
+        if (!findAccessiblePlaceIds(nanoId).contains(plant.getPlaceId())) {
+            throw new BusinessException(PlantErrorCode.PLACE_ACCESS_DENIED);
+        }
+        return plant;
+    }
+
+    private Plant findPlantBelongsToPlace(Long placeId, Long plantId) {
         Plant plant = plantRepository.findById(plantId)
                 .orElseThrow(() -> new BusinessException(PlantErrorCode.PLANT_NOT_FOUND));
         validatePlantBelongsToPlace(plant, placeId);
@@ -163,9 +262,7 @@ public class PlantServiceImpl implements PlantService {
     }
 
     private List<Long> findAccessiblePlaceIds(String nanoId) {
-        // TODO: place 도메인 구현 후 nanoId 기준으로 사용자가 속한 place id 목록을 조회한다.
-        // 테스트용: 무조건 placeId 1 반환
-        return List.of(1L);
+        return placeService.getPlaceIdsByUser(nanoId);
     }
 
     private String findPlantMemo(Long plantId) {
@@ -173,9 +270,11 @@ public class PlantServiceImpl implements PlantService {
         return null;
     }
 
-    private String findPlaceName(Long placeId) {
-        // TODO: place 도메인 구현 후 placeId 기준 장소 이름을 조회한다.
-        return null;
+    private String resolveImageUrl(String imageKey) {
+        if (!StringUtils.hasText(imageKey)) {
+            return null;
+        }
+        return s3Service.getImageUrl(imageKey);
     }
 
     private int normalizePage(int page) {

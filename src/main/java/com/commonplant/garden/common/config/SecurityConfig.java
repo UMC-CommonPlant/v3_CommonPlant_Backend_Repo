@@ -1,7 +1,10 @@
 package com.commonplant.garden.common.config;
 
 import com.commonplant.garden.common.filter.JwtAuthenticationFilter;
+import com.commonplant.garden.common.security.JwtAccessDeniedHandler;
+import com.commonplant.garden.common.security.JwtAuthenticationEntryPoint;
 import com.commonplant.garden.common.util.JwtUtil;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -20,6 +23,9 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 public class SecurityConfig {
 
     private final JwtUtil jwtUtil;
+    private final ObjectMapper objectMapper;
+    private final JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
+    private final JwtAccessDeniedHandler jwtAccessDeniedHandler;
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
@@ -34,14 +40,20 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/auth/**").permitAll()
                         .requestMatchers(HttpMethod.POST,"/users").permitAll() // 사용자 토큰 발행 테스트
-                        .requestMatchers("/health").permitAll()
+                        .requestMatchers("/actuator/health").permitAll()
                         .requestMatchers("/api-docs/**", "/api-docs/json/**", "/swagger-ui/**", "/swagger-ui.html").permitAll() // Swagger UI 접근 허용
                         .anyRequest().authenticated()
                 )
 
+                // JWT 예외 처리 핸들러 등록
+                .exceptionHandling(ex -> ex
+                        .authenticationEntryPoint(jwtAuthenticationEntryPoint)  // 401: 미인증
+                        .accessDeniedHandler(jwtAccessDeniedHandler)            // 403: 권한 없음
+                )
+
                 // JWT 검증 필터 등록
                 .addFilterBefore(
-                        new JwtAuthenticationFilter(jwtUtil),
+                        new JwtAuthenticationFilter(jwtUtil, objectMapper),
                         UsernamePasswordAuthenticationFilter.class
                 )
                 .build();

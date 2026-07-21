@@ -59,13 +59,13 @@ public class KakaoTokenVerifier {
         }
 
         Map<String, Object> profile = (Map<String, Object>) kakaoAccount.get("profile");
-        String nickname = profile != null ? (String) profile.getOrDefault("nickname", "") : "";
+        String name = profile != null ? (String) profile.getOrDefault("nickname", "") : "";
         String profileImageUrl = profile != null ? (String) profile.getOrDefault("profile_image_url", null) : null;
 
         return SocialUserInfo.builder()
                 .providerId(providerId)
                 .email(email)
-                .nickname(nickname)
+                .name(name)
                 .profileImageUrl(profileImageUrl)
                 .build();
     }

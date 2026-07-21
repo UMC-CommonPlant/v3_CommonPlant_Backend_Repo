@@ -18,3 +18,9 @@ out/
 #src/main/resources/*.yaml
 gradle/**
 postgres_data/**
+
+start-prod.sh
+
+.DS_Store
+src/.DS_Store
+src/main/.DS_Store
