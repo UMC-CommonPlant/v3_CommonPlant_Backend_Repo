@@ -12,3 +12,44 @@ services:
     volumes:
       - ./postgres_data:/var/lib/postgresql/data
     restart: always
+
+  minio:
+    image: quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z
+    container_name: common-minio
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:-commonplant}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:-commonplant-local-password}
+      TZ: Asia/Seoul
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: always
+
+  minio-init:
+    image: minio/mc:RELEASE.2025-08-13T08-35-41Z
+    container_name: common-minio-init
+    depends_on:
+      minio:
+        condition: service_healthy
+    environment:
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-commonplant}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-commonplant-local-password}
+      MINIO_BUCKET_NAME: ${MINIO_BUCKET_NAME:-commonplant-local}
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        set -e
+        mc alias set local http://minio:9000 "$$MINIO_ACCESS_KEY" "$$MINIO_SECRET_KEY"
+        mc mb --ignore-existing "local/$$MINIO_BUCKET_NAME"
+
+volumes:
+  minio_data:
