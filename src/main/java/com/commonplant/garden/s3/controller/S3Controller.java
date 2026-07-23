@@ -30,7 +30,7 @@ import java.util.List;
 @RequiredArgsConstructor
 @RestController
 @RequestMapping("/s3")
-@Tag(name = "Image", description = "S3 이미지 업로드/조회/수정/삭제 API")
+@Tag(name = "Image", description = "MinIO 이미지 업로드/조회/수정/삭제 API")
 public class S3Controller {
 
     private final S3Service s3Service;
@@ -54,7 +54,7 @@ public class S3Controller {
         return ResponseEntity.ok(new JsonResponse(true, 200, "getImage", response));
     }
 
-    @Operation(summary = "이미지 삭제", description = "이미지 key에 해당하는 S3 객체와 이미지 메타데이터를 삭제합니다.")
+    @Operation(summary = "이미지 삭제", description = "이미지 key에 해당하는 MinIO 객체와 이미지 메타데이터를 삭제합니다.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "이미지 삭제 성공"),
             @ApiResponse(responseCode = "401", description = "인증 실패"),

@@ -22,7 +22,7 @@ public class S3Response {
     @Builder
     @Schema(description = "이미지 정보")
     public static class ImageInfo {
-        @Schema(description = "S3 이미지 key", example = "images/user-nano-id/sample.png")
+        @Schema(description = "이미지 객체 key", example = "images/user-nano-id/sample.png")
         private String key;
 
         @Schema(description = "이미지가 연결된 장소 ID(없을 수 있음)", example = "1", nullable = true)
@@ -34,7 +34,7 @@ public class S3Response {
         @Schema(description = "이미지 파일 크기(byte)", example = "204800")
         private Long sizeBytes;
 
-        @Schema(description = "이미지 다운로드 presigned URL", example = "https://bucket.s3.ap-northeast-2.amazonaws.com/images/1/user-nano-id/sample.png?X-Amz-Algorithm=...")
+        @Schema(description = "이미지 다운로드 presigned URL", example = "https://minio.example.com/garden-images/images/user-nano-id/sample.png?X-Amz-Algorithm=...")
         private String downloadUrl;
 
         @Schema(description = "다운로드 URL 만료 시각", example = "2026-05-12T12:00:00Z")
