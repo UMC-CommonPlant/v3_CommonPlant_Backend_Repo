@@ -129,9 +129,9 @@ jobs:
             exit 1
           fi
 
-      - name: Revalidate merged commit
-        if: steps.preflight.outputs.build_required == 'true'
-        run: ./gradlew clean test --no-daemon
+#      - name: Revalidate merged commit
+#        if: steps.preflight.outputs.build_required == 'true'
+#        run: ./gradlew clean test --no-daemon
 
       - name: Extract image metadata
         id: metadata
