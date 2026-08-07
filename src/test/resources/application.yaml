@@ -6,9 +6,6 @@ spring:
     activate:
       on-profile: test
 
-  jwt:
-    secret: CHv3KztSMUlNONuvFeKX3e9pM9fII         # 256-bit 이상 랜덤 문자열 (환경변수)
-
   jpa:
     hibernate:
       ddl-auto: update
@@ -22,6 +19,7 @@ server:
     context-path: /api/v1
 
 jwt:
+  secret: DO-NOT-USE-IN-PRODUCTION-test-only-jwt-secret-key-0123456789
   access-token-expiry: 3600000      # 1시간 (ms)
   refresh-token-expiry: 2592000000  # 30일 (ms)
   signup-token-expiry: 600000       # 10분 (ms)
