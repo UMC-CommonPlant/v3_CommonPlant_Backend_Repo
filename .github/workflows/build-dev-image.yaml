@@ -1,0 +1,162 @@
+name: Build Dev Image
+
+on:
+  push:
+    branches:
+      - develop
+#on:
+#  pull_request:
+#    branches:
+#      - develop
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: build-dev-image-${{ github.sha }}
+  cancel-in-progress: false
+
+env:
+  REGISTRY: ${{ vars.CONTAINER_REGISTRY }}
+  IMAGE_NAME: ${{ vars.CONTAINER_IMAGE_NAME }}
+  IMAGE_TAG: sha-${{ github.sha }}
+
+jobs:
+  build-dev-image:
+    name: build-dev-image
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
+
+      - name: Log in to GHCR
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Check existing SHA image
+        id: preflight
+        shell: bash
+        env:
+          EXPECTED_REVISION: ${{ github.sha }}
+        run: |
+          set -Eeuo pipefail
+          
+          IMAGE_REF="${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}"
+          
+          echo "image_ref=${IMAGE_REF}" >> "$GITHUB_OUTPUT"
+          
+          if ! docker buildx imagetools inspect "${IMAGE_REF}" >/dev/null 2>&1; then
+            echo "Image does not exist. Build is required."
+            echo "build_required=true" >> "$GITHUB_OUTPUT"
+            echo "skip_reason=" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          
+          echo "Image tag already exists: ${IMAGE_REF}"
+          
+          EXISTING_DIGEST="$(
+            docker buildx imagetools inspect \
+              --raw "${IMAGE_REF}" \
+              | sha256sum \
+              | awk '{print "sha256:" $1}'
+          )"
+          
+          LABELS="$(
+            docker buildx imagetools inspect "${IMAGE_REF}" \
+              --format '{{json .Image.Config.Labels}}'
+          )"
+          
+          EXISTING_REVISION="$(
+            jq -r '."org.opencontainers.image.revision" // empty' \
+              <<< "${LABELS}"
+          )"
+          
+          echo "existing_digest=${EXISTING_DIGEST}" >> "$GITHUB_OUTPUT"
+          echo "existing_revision=${EXISTING_REVISION}" >> "$GITHUB_OUTPUT"
+          
+          if [[ -z "${EXISTING_REVISION}" ]]; then
+            echo "::error::Existing image has no org.opencontainers.image.revision label."
+            echo "::error::The immutable SHA tag cannot be verified."
+            exit 1
+          fi
+          
+          if [[ "${EXISTING_REVISION}" != "${EXPECTED_REVISION}" ]]; then
+            echo "::error::Immutable SHA tag violation detected."
+            echo "::error::Expected revision: ${EXPECTED_REVISION}"
+            echo "::error::Existing revision: ${EXISTING_REVISION}"
+            exit 1
+          fi
+          
+          echo "The image already exists and matches github.sha."
+          echo "build_required=false" >> "$GITHUB_OUTPUT"
+          echo "skip_reason=image-already-exists" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Java
+        if: steps.preflight.outputs.build_required == 'true'
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
+        with:
+          distribution: temurin
+          java-version: ${{ vars.JAVA_VERSION }}
+          cache: gradle
+
+      - name: Grant execute permission
+        if: steps.preflight.outputs.build_required == 'true'
+        run: chmod +x gradlew
+
+      - name: Verify checked-out commit
+        if: steps.preflight.outputs.build_required == 'true'
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          
+          CHECKED_OUT_SHA="$(git rev-parse HEAD)"
+          
+          if [[ "${CHECKED_OUT_SHA}" != "${GITHUB_SHA}" ]]; then
+            echo "::error::Checked-out commit does not match github.sha."
+            echo "::error::Checked out: ${CHECKED_OUT_SHA}"
+            echo "::error::Expected:    ${GITHUB_SHA}"
+            exit 1
+          fi
+          
+          - name: Revalidate merged commit
+           if: steps.preflight.outputs.build_required == 'true'
+           run: ./gradlew clean test --no-daemon
+
+      - name: Extract image metadata
+        id: metadata
+        if: steps.preflight.outputs.build_required == 'true'
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=${{ env.IMAGE_TAG }}
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.version=${{ env.IMAGE_TAG }}
+
+      - name: Build and push image
+        id: build
+        if: steps.preflight.outputs.build_required == 'true'
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        with:
+          context: .
+          push: true
+          platforms: linux/amd64
+          tags: ${{ steps.metadata.outputs.tags }}
+          labels: ${{ steps.metadata.outputs.labels }}
+          provenance: false
+          sbom: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
