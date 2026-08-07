@@ -101,3 +101,34 @@ jobs:
           echo "The image already exists and matches github.sha."
           echo "build_required=false" >> "$GITHUB_OUTPUT"
           echo "skip_reason=image-already-exists" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Java
+        if: steps.preflight.outputs.build_required == 'true'
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
+        with:
+          distribution: temurin
+          java-version: ${{ vars.JAVA_VERSION }}
+          cache: gradle
+
+      - name: Grant execute permission
+        if: steps.preflight.outputs.build_required == 'true'
+        run: chmod +x gradlew
+
+      - name: Verify checked-out commit
+        if: steps.preflight.outputs.build_required == 'true'
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          
+          CHECKED_OUT_SHA="$(git rev-parse HEAD)"
+          
+          if [[ "${CHECKED_OUT_SHA}" != "${GITHUB_SHA}" ]]; then
+            echo "::error::Checked-out commit does not match github.sha."
+            echo "::error::Checked out: ${CHECKED_OUT_SHA}"
+            echo "::error::Expected:    ${GITHUB_SHA}"
+            exit 1
+          fi
+          
+          - name: Revalidate merged commit
+           if: steps.preflight.outputs.build_required == 'true'
+           run: ./gradlew clean test --no-daemon
