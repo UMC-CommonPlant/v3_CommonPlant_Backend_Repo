@@ -3,11 +3,13 @@ spring:
   config:
     activate:
       on-profile: local
+
   datasource:
     url: jdbc:postgresql://localhost:5432/commondb
     driver-class-name: org.postgresql.Driver
     username: commonuser
     password: commonpass
+
   jpa:
     hibernate:
       ddl-auto: update

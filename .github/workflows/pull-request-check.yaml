@@ -29,4 +29,15 @@ jobs:
         run: chmod +x gradlew
 
       - name: Run tests
-        run: ./gradlew test --no-daemon
+        run: ./gradlew test --no-daemon # --stacktrace --info
+
+      - name: Print failed test details
+        if: failure()
+        run: |
+          echo "===== Failed test XML ====="
+
+          find build/test-results/test \
+            -type f \
+            -name "*.xml" \
+            -print \
+            -exec cat {} \;
