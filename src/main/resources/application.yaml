@@ -7,7 +7,6 @@ server:
     context-path: /api/v1
 
 jwt:
-  secret: ${JWT_SECRET}             # 256-bit 이상 랜덤 문자열 (환경변수)
   access-token-expiry: 3600000      # 1시간 (ms)
   refresh-token-expiry: 2592000000  # 30일 (ms)
   signup-token-expiry: 600000       # 10분 (ms)

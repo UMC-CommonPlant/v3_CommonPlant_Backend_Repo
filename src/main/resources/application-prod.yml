@@ -1,10 +1,18 @@
 # [prod] 프로필: AWS RDS(PostgreSQL) 사용
 spring:
+  config:
+    activate:
+      on-profile: prod
+
+  jwt:
+    secret: ${JWT_SECRET}             # 256-bit 이상 랜덤 문자열 (환경변수)
+
   datasource:
     url: jdbc:postgresql://${RDS_HOSTNAME}:${RDS_PORT:5432}/${RDS_DB_NAME}
     driver-class-name: org.postgresql.Driver
     username: ${RDS_USERNAME}
     password: ${RDS_PASSWORD}
+
   jpa:
     hibernate:
       ddl-auto: validate # update

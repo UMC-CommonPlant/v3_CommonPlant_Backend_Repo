@@ -3,6 +3,10 @@ spring:
   config:
     activate:
       on-profile: test
+
+  jwt:
+    secret: CHv3KztSMUlNONuvFeKX3e9pM9fII         # 256-bit 이상 랜덤 문자열 (환경변수)
+
   jpa:
     hibernate:
       ddl-auto: update
