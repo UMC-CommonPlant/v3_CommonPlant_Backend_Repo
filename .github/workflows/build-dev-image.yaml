@@ -1,13 +1,13 @@
 name: Build Dev Image
 
-on:
-  push:
-    branches:
-      - develop
 #on:
-#  pull_request:
+#  push:
 #    branches:
 #      - develop
+on:
+  pull_request:
+    branches:
+      - develop
 
 permissions:
   contents: read
@@ -119,19 +119,19 @@ jobs:
         shell: bash
         run: |
           set -Eeuo pipefail
-          
+
           CHECKED_OUT_SHA="$(git rev-parse HEAD)"
-          
+
           if [[ "${CHECKED_OUT_SHA}" != "${GITHUB_SHA}" ]]; then
             echo "::error::Checked-out commit does not match github.sha."
             echo "::error::Checked out: ${CHECKED_OUT_SHA}"
             echo "::error::Expected:    ${GITHUB_SHA}"
             exit 1
           fi
-          
-          - name: Revalidate merged commit
-           if: steps.preflight.outputs.build_required == 'true'
-           run: ./gradlew clean test --no-daemon
+
+      - name: Revalidate merged commit
+        if: steps.preflight.outputs.build_required == 'true'
+        run: ./gradlew clean test --no-daemon
 
       - name: Extract image metadata
         id: metadata
