@@ -1,10 +1,5 @@
 name: Build Dev Image
 
-#on:
-#  push:
-#    branches:
-#      - develop
-# simple-build-image-test
 on:
   pull_request:
     branches:
@@ -20,6 +15,7 @@ concurrency:
 
 env:
   REGISTRY: ${{ vars.CONTAINER_REGISTRY }}
+  IMAGE_OWNER: ${{ github.repository_owner }}
   IMAGE_NAME: ${{ vars.CONTAINER_IMAGE_NAME }}
   IMAGE_TAG: sha-${{ github.sha }}
 
@@ -52,53 +48,55 @@ jobs:
           EXPECTED_REVISION: ${{ github.sha }}
         run: |
           set -Eeuo pipefail
-          
-          IMAGE_REF="${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}"
-          
+
+          IMAGE_REPOSITORY="${REGISTRY}/${IMAGE_OWNER}/${IMAGE_NAME}"
+          IMAGE_REF="${IMAGE_REPOSITORY}:${IMAGE_TAG}"
+
+          echo "image_repository=${IMAGE_REPOSITORY}" >> "$GITHUB_OUTPUT"
           echo "image_ref=${IMAGE_REF}" >> "$GITHUB_OUTPUT"
-          
+
           if ! docker buildx imagetools inspect "${IMAGE_REF}" >/dev/null 2>&1; then
             echo "Image does not exist. Build is required."
             echo "build_required=true" >> "$GITHUB_OUTPUT"
             echo "skip_reason=" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          
+
           echo "Image tag already exists: ${IMAGE_REF}"
-          
+
           EXISTING_DIGEST="$(
             docker buildx imagetools inspect \
               --raw "${IMAGE_REF}" \
               | sha256sum \
               | awk '{print "sha256:" $1}'
           )"
-          
+
           LABELS="$(
             docker buildx imagetools inspect "${IMAGE_REF}" \
               --format '{{json .Image.Config.Labels}}'
           )"
-          
+
           EXISTING_REVISION="$(
             jq -r '."org.opencontainers.image.revision" // empty' \
               <<< "${LABELS}"
           )"
-          
+
           echo "existing_digest=${EXISTING_DIGEST}" >> "$GITHUB_OUTPUT"
           echo "existing_revision=${EXISTING_REVISION}" >> "$GITHUB_OUTPUT"
-          
+
           if [[ -z "${EXISTING_REVISION}" ]]; then
             echo "::error::Existing image has no org.opencontainers.image.revision label."
             echo "::error::The immutable SHA tag cannot be verified."
             exit 1
           fi
-          
+
           if [[ "${EXISTING_REVISION}" != "${EXPECTED_REVISION}" ]]; then
             echo "::error::Immutable SHA tag violation detected."
             echo "::error::Expected revision: ${EXPECTED_REVISION}"
             echo "::error::Existing revision: ${EXISTING_REVISION}"
             exit 1
           fi
-          
+
           echo "The image already exists and matches github.sha."
           echo "build_required=false" >> "$GITHUB_OUTPUT"
           echo "skip_reason=image-already-exists" >> "$GITHUB_OUTPUT"
@@ -130,16 +128,16 @@ jobs:
             exit 1
           fi
 
-#      - name: Revalidate merged commit
-#        if: steps.preflight.outputs.build_required == 'true'
-#        run: ./gradlew clean test --no-daemon
+      # - name: Revalidate merged commit
+      #   if: steps.preflight.outputs.build_required == 'true'
+      #   run: ./gradlew clean test --no-daemon
 
       - name: Extract image metadata
         id: metadata
         if: steps.preflight.outputs.build_required == 'true'
         uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
         with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/${{ env.IMAGE_NAME }}
           tags: |
             type=raw,value=${{ env.IMAGE_TAG }}
           labels: |
