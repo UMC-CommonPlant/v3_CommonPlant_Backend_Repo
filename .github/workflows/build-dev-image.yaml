@@ -37,32 +37,42 @@ jobs:
           REPOSITORY_OWNER: ${{ github.repository_owner }}
         run: |
           set -Eeuo pipefail
-          
+
           IMAGE_OWNER="$(
             printf '%s' "${REPOSITORY_OWNER}" \
               | tr '[:upper:]' '[:lower:]'
           )"
-          
+
           IMAGE_REPOSITORY="${REGISTRY}/${IMAGE_OWNER}/${IMAGE_NAME}"
-          
+          IMAGE_REF="${IMAGE_REPOSITORY}:${IMAGE_TAG}"
+
           if [[ -z "${REGISTRY}" ]]; then
             echo "::error::REGISTRY is empty."
             exit 1
           fi
-          
+
           if [[ -z "${IMAGE_NAME}" ]]; then
             echo "::error::IMAGE_NAME is empty."
             exit 1
           fi
-          
+
+          if [[ "${IMAGE_REPOSITORY}" != ghcr.io/*/* ]]; then
+            echo "::error::Invalid GHCR repository."
+            echo "::error::Repository: ${IMAGE_REPOSITORY}"
+            exit 1
+          fi
+
           echo "IMAGE_OWNER=${IMAGE_OWNER}" >> "$GITHUB_ENV"
           echo "IMAGE_REPOSITORY=${IMAGE_REPOSITORY}" >> "$GITHUB_ENV"
-          
+          echo "IMAGE_REF=${IMAGE_REF}" >> "$GITHUB_ENV"
+
           echo "image_owner=${IMAGE_OWNER}" >> "$GITHUB_OUTPUT"
           echo "image_repository=${IMAGE_REPOSITORY}" >> "$GITHUB_OUTPUT"
-          
+          echo "image_ref=${IMAGE_REF}" >> "$GITHUB_OUTPUT"
+
           echo "Image owner: ${IMAGE_OWNER}"
           echo "Image repository: ${IMAGE_REPOSITORY}"
+          echo "Image reference: ${IMAGE_REF}"
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
@@ -82,7 +92,7 @@ jobs:
         run: |
           set -Eeuo pipefail
 
-          IMAGE_REF="${IMAGE_REPOSITORY}:${IMAGE_TAG}"
+          echo "Checking image: ${IMAGE_REF}"
 
           echo "image_repository=${IMAGE_REPOSITORY}" >> "$GITHUB_OUTPUT"
           echo "image_ref=${IMAGE_REF}" >> "$GITHUB_OUTPUT"
@@ -160,22 +170,20 @@ jobs:
             exit 1
           fi
 
-      # - name: Revalidate merged commit
-      #   if: steps.preflight.outputs.build_required == 'true'
-      #   run: ./gradlew clean test --no-daemon
-
-      - name: Extract image metadata
-        id: metadata
+      - name: Validate image reference
         if: steps.preflight.outputs.build_required == 'true'
-        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
-        with:
-          images: ${{ env.IMAGE_REPO }}
-          tags: |
-            type=raw,value=${{ env.IMAGE_TAG }}
-          labels: |
-            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
-            org.opencontainers.image.revision=${{ github.sha }}
-            org.opencontainers.image.version=${{ env.IMAGE_TAG }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+
+          echo "Image to build and push:"
+          echo "${IMAGE_REF}"
+
+          if [[ "${IMAGE_REF}" != ghcr.io/*/*:* ]]; then
+            echo "::error::Invalid GHCR image reference."
+            echo "::error::Image: ${IMAGE_REF}"
+            exit 1
+          fi
 
       - name: Build and push image
         id: build
@@ -186,14 +194,16 @@ jobs:
           file: ./Dockerfile
           push: true
           platforms: linux/amd64
-          tags: ${{ steps.metadata.outputs.tags }}
-          labels: ${{ steps.metadata.outputs.labels }}
+          tags: ${{ steps.image-repository.outputs.image_ref }}
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.version=${{ env.IMAGE_TAG }}
           provenance: false
           sbom: false
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      # Build Action이 반환한 digest 형식 검증
       - name: Validate build digest
         id: build-digest
         if: steps.preflight.outputs.build_required == 'true'
@@ -217,7 +227,6 @@ jobs:
           echo "image_repository=${IMAGE_REPOSITORY}" >> "$GITHUB_OUTPUT"
           echo "digest_ref=${DIGEST_REF}" >> "$GITHUB_OUTPUT"
 
-      # GHCR에서 push된 이미지의 manifest 조회
       - name: Fetch pushed image manifest
         id: registry-manifest
         if: steps.preflight.outputs.build_required == 'true'
@@ -225,11 +234,11 @@ jobs:
         run: |
           set -Eeuo pipefail
 
-          IMAGE_REF="${IMAGE_REPOSITORY}:${IMAGE_TAG}"
           RAW_MANIFEST_FILE="${RUNNER_TEMP}/image-manifest.json"
 
           for attempt in 1 2 3 4 5; do
             echo "Fetching image manifest: attempt ${attempt}/5"
+            echo "Image: ${IMAGE_REF}"
 
             if docker buildx imagetools inspect \
               --raw "${IMAGE_REF}" > "${RAW_MANIFEST_FILE}"; then
@@ -254,7 +263,6 @@ jobs:
           echo "image_ref=${IMAGE_REF}" >> "$GITHUB_OUTPUT"
           echo "manifest_file=${RAW_MANIFEST_FILE}" >> "$GITHUB_OUTPUT"
 
-      # Build digest와 Registry digest 비교
       - name: Compare build and registry digests
         id: digest-compare
         if: steps.preflight.outputs.build_required == 'true'
@@ -290,7 +298,6 @@ jobs:
           echo "registry_digest=${REGISTRY_DIGEST}" >> "$GITHUB_OUTPUT"
           echo "digest_ref=${DIGEST_REF}" >> "$GITHUB_OUTPUT"
 
-      # Digest reference를 사용한 실제 Pull 검증
       - name: Verify image by digest pull
         id: digest-pull
         if: steps.preflight.outputs.build_required == 'true'
