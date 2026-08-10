@@ -18,6 +18,7 @@ env:
   IMAGE_OWNER: ${{ github.repository_owner }}
   IMAGE_NAME: ${{ vars.CONTAINER_IMAGE_NAME }}
   IMAGE_TAG: sha-${{ github.sha }}
+  IMAGE_REPOSITORY: ${REGISTRY}/${IMAGE_OWNER}/${IMAGE_NAME}
 
 jobs:
   build-dev-image:
@@ -49,7 +50,6 @@ jobs:
         run: |
           set -Eeuo pipefail
 
-          IMAGE_REPOSITORY="${REGISTRY}/${IMAGE_OWNER}/${IMAGE_NAME}"
           IMAGE_REF="${IMAGE_REPOSITORY}:${IMAGE_TAG}"
 
           echo "image_repository=${IMAGE_REPOSITORY}" >> "$GITHUB_OUTPUT"
@@ -137,7 +137,7 @@ jobs:
         if: steps.preflight.outputs.build_required == 'true'
         uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
         with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/${{ env.IMAGE_NAME }}
+          images: ${{ env.IMAGE_REPO }}
           tags: |
             type=raw,value=${{ env.IMAGE_TAG }}
           labels: |
@@ -176,7 +176,6 @@ jobs:
             exit 1
           fi
 
-          IMAGE_REPOSITORY="${REGISTRY}/${IMAGE_OWNER}/${IMAGE_NAME}"
           DIGEST_REF="${IMAGE_REPOSITORY}@${BUILD_DIGEST}"
 
           echo "Build digest is valid: ${BUILD_DIGEST}"
@@ -194,7 +193,6 @@ jobs:
         run: |
           set -Eeuo pipefail
 
-          IMAGE_REPOSITORY="${REGISTRY}/${IMAGE_OWNER}/${IMAGE_NAME}"
           IMAGE_REF="${IMAGE_REPOSITORY}:${IMAGE_TAG}"
           RAW_MANIFEST_FILE="${RUNNER_TEMP}/image-manifest.json"
 
