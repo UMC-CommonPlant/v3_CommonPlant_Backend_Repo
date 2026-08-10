@@ -30,21 +30,16 @@ jobs:
           ref: ${{ github.sha }}
           fetch-depth: 1
 
-      - name: Prepare image repository
-        id: prepare-repository
+      # ------------------------------------------------------------
+      # 1. 이미지 경로 생성
+      # ------------------------------------------------------------
+      - name: Prepare image reference
+        id: image
         shell: bash
         env:
           REPOSITORY_OWNER: ${{ github.repository_owner }}
         run: |
           set -Eeuo pipefail
-
-          IMAGE_OWNER="$(
-            printf '%s' "${REPOSITORY_OWNER}" \
-              | tr '[:upper:]' '[:lower:]'
-          )"
-
-          IMAGE_REPOSITORY="${REGISTRY}/${IMAGE_OWNER}/${IMAGE_NAME}"
-          IMAGE_REF="${IMAGE_REPOSITORY}:${IMAGE_TAG}"
 
           if [[ -z "${REGISTRY}" ]]; then
             echo "::error::REGISTRY is empty."
@@ -56,23 +51,24 @@ jobs:
             exit 1
           fi
 
-          if [[ "${IMAGE_REPOSITORY}" != ghcr.io/*/* ]]; then
-            echo "::error::Invalid GHCR repository."
-            echo "::error::Repository: ${IMAGE_REPOSITORY}"
-            exit 1
-          fi
+          IMAGE_OWNER="$(
+            printf '%s' "${REPOSITORY_OWNER}" \
+              | tr '[:upper:]' '[:lower:]'
+          )"
 
-          echo "IMAGE_OWNER=${IMAGE_OWNER}" >> "$GITHUB_ENV"
+          IMAGE_REPOSITORY="${REGISTRY}/${IMAGE_OWNER}/${IMAGE_NAME}"
+          IMAGE_REF="${IMAGE_REPOSITORY}:${IMAGE_TAG}"
+
+          # Shell step에서 공통 사용
           echo "IMAGE_REPOSITORY=${IMAGE_REPOSITORY}" >> "$GITHUB_ENV"
           echo "IMAGE_REF=${IMAGE_REF}" >> "$GITHUB_ENV"
 
-          echo "image_owner=${IMAGE_OWNER}" >> "$GITHUB_OUTPUT"
-          echo "image_repository=${IMAGE_REPOSITORY}" >> "$GITHUB_OUTPUT"
-          echo "image_ref=${IMAGE_REF}" >> "$GITHUB_OUTPUT"
+          # Action input에서 사용
+          echo "repository=${IMAGE_REPOSITORY}" >> "$GITHUB_OUTPUT"
+          echo "ref=${IMAGE_REF}" >> "$GITHUB_OUTPUT"
 
-          echo "Image owner: ${IMAGE_OWNER}"
           echo "Image repository: ${IMAGE_REPOSITORY}"
-          echo "Image reference: ${IMAGE_REF}"
+          echo "Image reference:  ${IMAGE_REF}"
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
@@ -84,6 +80,9 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # ------------------------------------------------------------
+      # 2. 동일 SHA 이미지 존재 여부 확인
+      # ------------------------------------------------------------
       - name: Check existing SHA image
         id: preflight
         shell: bash
@@ -94,24 +93,13 @@ jobs:
 
           echo "Checking image: ${IMAGE_REF}"
 
-          echo "image_repository=${IMAGE_REPOSITORY}" >> "$GITHUB_OUTPUT"
-          echo "image_ref=${IMAGE_REF}" >> "$GITHUB_OUTPUT"
-
           if ! docker buildx imagetools inspect "${IMAGE_REF}" >/dev/null 2>&1; then
             echo "Image does not exist. Build is required."
             echo "build_required=true" >> "$GITHUB_OUTPUT"
-            echo "skip_reason=" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
-          echo "Image tag already exists: ${IMAGE_REF}"
-
-          EXISTING_DIGEST="$(
-            docker buildx imagetools inspect \
-              --raw "${IMAGE_REF}" \
-              | sha256sum \
-              | awk '{print "sha256:" $1}'
-          )"
+          echo "Image already exists: ${IMAGE_REF}"
 
           LABELS="$(
             docker buildx imagetools inspect "${IMAGE_REF}" \
@@ -123,26 +111,24 @@ jobs:
               <<< "${LABELS}"
           )"
 
-          echo "existing_digest=${EXISTING_DIGEST}" >> "$GITHUB_OUTPUT"
-          echo "existing_revision=${EXISTING_REVISION}" >> "$GITHUB_OUTPUT"
-
           if [[ -z "${EXISTING_REVISION}" ]]; then
-            echo "::error::Existing image has no org.opencontainers.image.revision label."
-            echo "::error::The immutable SHA tag cannot be verified."
+            echo "::error::Existing image has no revision label."
             exit 1
           fi
 
           if [[ "${EXISTING_REVISION}" != "${EXPECTED_REVISION}" ]]; then
             echo "::error::Immutable SHA tag violation detected."
-            echo "::error::Expected revision: ${EXPECTED_REVISION}"
-            echo "::error::Existing revision: ${EXISTING_REVISION}"
+            echo "::error::Expected: ${EXPECTED_REVISION}"
+            echo "::error::Actual:   ${EXISTING_REVISION}"
             exit 1
           fi
 
-          echo "The image already exists and matches github.sha."
+          echo "Existing image matches github.sha."
           echo "build_required=false" >> "$GITHUB_OUTPUT"
-          echo "skip_reason=image-already-exists" >> "$GITHUB_OUTPUT"
 
+      # ------------------------------------------------------------
+      # 3. Build 준비
+      # ------------------------------------------------------------
       - name: Set up Java
         if: steps.preflight.outputs.build_required == 'true'
         uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
@@ -170,21 +156,9 @@ jobs:
             exit 1
           fi
 
-      - name: Validate image reference
-        if: steps.preflight.outputs.build_required == 'true'
-        shell: bash
-        run: |
-          set -Eeuo pipefail
-
-          echo "Image to build and push:"
-          echo "${IMAGE_REF}"
-
-          if [[ "${IMAGE_REF}" != ghcr.io/*/*:* ]]; then
-            echo "::error::Invalid GHCR image reference."
-            echo "::error::Image: ${IMAGE_REF}"
-            exit 1
-          fi
-
+      # ------------------------------------------------------------
+      # 4. Build & Push
+      # ------------------------------------------------------------
       - name: Build and push image
         id: build
         if: steps.preflight.outputs.build_required == 'true'
@@ -194,7 +168,7 @@ jobs:
           file: ./Dockerfile
           push: true
           platforms: linux/amd64
-          tags: ${{ steps.image-repository.outputs.image_ref }}
+          tags: ${{ steps.image.outputs.ref }}
           labels: |
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
             org.opencontainers.image.revision=${{ github.sha }}
@@ -204,8 +178,11 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Validate build digest
-        id: build-digest
+      # ------------------------------------------------------------
+      # 5. Push 결과 통합 검증
+      # ------------------------------------------------------------
+      - name: Verify pushed image
+        id: verify
         if: steps.preflight.outputs.build_required == 'true'
         shell: bash
         env:
@@ -213,41 +190,31 @@ jobs:
         run: |
           set -Eeuo pipefail
 
+          #
+          # 1. Buildx가 반환한 digest 검증
+          #
           if [[ ! "${BUILD_DIGEST}" =~ ^sha256:[0-9a-f]{64}$ ]]; then
             echo "::error::Invalid build digest: ${BUILD_DIGEST}"
             exit 1
           fi
 
-          DIGEST_REF="${IMAGE_REPOSITORY}@${BUILD_DIGEST}"
+          echo "Build digest: ${BUILD_DIGEST}"
 
-          echo "Build digest is valid: ${BUILD_DIGEST}"
-          echo "Image repository: ${IMAGE_REPOSITORY}"
-
-          echo "build_digest=${BUILD_DIGEST}" >> "$GITHUB_OUTPUT"
-          echo "image_repository=${IMAGE_REPOSITORY}" >> "$GITHUB_OUTPUT"
-          echo "digest_ref=${DIGEST_REF}" >> "$GITHUB_OUTPUT"
-
-      - name: Fetch pushed image manifest
-        id: registry-manifest
-        if: steps.preflight.outputs.build_required == 'true'
-        shell: bash
-        run: |
-          set -Eeuo pipefail
-
+          #
+          # 2. GHCR manifest 조회
+          #
           RAW_MANIFEST_FILE="${RUNNER_TEMP}/image-manifest.json"
 
           for attempt in 1 2 3 4 5; do
             echo "Fetching image manifest: attempt ${attempt}/5"
-            echo "Image: ${IMAGE_REF}"
 
             if docker buildx imagetools inspect \
               --raw "${IMAGE_REF}" > "${RAW_MANIFEST_FILE}"; then
-              echo "Image manifest fetched successfully."
               break
             fi
 
             if [[ "${attempt}" == "5" ]]; then
-              echo "::error::Unable to read the pushed image from GHCR."
+              echo "::error::Unable to read pushed image from GHCR."
               echo "::error::Image: ${IMAGE_REF}"
               exit 1
             fi
@@ -256,24 +223,13 @@ jobs:
           done
 
           if [[ ! -s "${RAW_MANIFEST_FILE}" ]]; then
-            echo "::error::Fetched manifest file is empty."
+            echo "::error::Fetched manifest is empty."
             exit 1
           fi
 
-          echo "image_ref=${IMAGE_REF}" >> "$GITHUB_OUTPUT"
-          echo "manifest_file=${RAW_MANIFEST_FILE}" >> "$GITHUB_OUTPUT"
-
-      - name: Compare build and registry digests
-        id: digest-compare
-        if: steps.preflight.outputs.build_required == 'true'
-        shell: bash
-        env:
-          BUILD_DIGEST: ${{ steps.build-digest.outputs.build_digest }}
-          DIGEST_REF: ${{ steps.build-digest.outputs.digest_ref }}
-          RAW_MANIFEST_FILE: ${{ steps.registry-manifest.outputs.manifest_file }}
-        run: |
-          set -Eeuo pipefail
-
+          #
+          # 3. Registry digest 계산
+          #
           REGISTRY_DIGEST="$(
             sha256sum "${RAW_MANIFEST_FILE}" \
               | awk '{print "sha256:" $1}'
@@ -284,32 +240,29 @@ jobs:
             exit 1
           fi
 
+          echo "Registry digest: ${REGISTRY_DIGEST}"
+
+          #
+          # 4. Build digest == Registry digest 검증
+          #
           if [[ "${BUILD_DIGEST}" != "${REGISTRY_DIGEST}" ]]; then
             echo "::error::Digest mismatch."
-            echo "::error::Build digest:    ${BUILD_DIGEST}"
-            echo "::error::Registry digest: ${REGISTRY_DIGEST}"
+            echo "::error::Build:    ${BUILD_DIGEST}"
+            echo "::error::Registry: ${REGISTRY_DIGEST}"
             exit 1
           fi
 
-          echo "Build and registry digests match."
-          echo "Digest: ${BUILD_DIGEST}"
+          #
+          # 5. Digest reference 직접 Pull 검증
+          #
+          DIGEST_REF="${IMAGE_REPOSITORY}@${BUILD_DIGEST}"
 
-          echo "build_digest=${BUILD_DIGEST}" >> "$GITHUB_OUTPUT"
-          echo "registry_digest=${REGISTRY_DIGEST}" >> "$GITHUB_OUTPUT"
-          echo "digest_ref=${DIGEST_REF}" >> "$GITHUB_OUTPUT"
-
-      - name: Verify image by digest pull
-        id: digest-pull
-        if: steps.preflight.outputs.build_required == 'true'
-        shell: bash
-        env:
-          DIGEST_REF: ${{ steps.digest-compare.outputs.digest_ref }}
-        run: |
-          set -Eeuo pipefail
-
-          echo "Pulling immutable image reference:"
+          echo "Pulling immutable image:"
           echo "${DIGEST_REF}"
 
           docker pull "${DIGEST_REF}"
 
-          echo "Image is accessible by digest."
+          echo "Image verification completed successfully."
+
+          echo "digest=${BUILD_DIGEST}" >> "$GITHUB_OUTPUT"
+          echo "digest_ref=${DIGEST_REF}" >> "$GITHUB_OUTPUT"
