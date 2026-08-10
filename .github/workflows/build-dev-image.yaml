@@ -160,3 +160,119 @@ jobs:
           sbom: false
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      # Build Action이 반환한 digest 형식 검증
+      - name: Validate build digest
+        id: build-digest
+        if: steps.preflight.outputs.build_required == 'true'
+        shell: bash
+        env:
+          BUILD_DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          set -Eeuo pipefail
+
+          if [[ ! "${BUILD_DIGEST}" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+            echo "::error::Invalid build digest: ${BUILD_DIGEST}"
+            exit 1
+          fi
+
+          IMAGE_REPOSITORY="${REGISTRY}/${IMAGE_OWNER}/${IMAGE_NAME}"
+          DIGEST_REF="${IMAGE_REPOSITORY}@${BUILD_DIGEST}"
+
+          echo "Build digest is valid: ${BUILD_DIGEST}"
+          echo "Image repository: ${IMAGE_REPOSITORY}"
+
+          echo "build_digest=${BUILD_DIGEST}" >> "$GITHUB_OUTPUT"
+          echo "image_repository=${IMAGE_REPOSITORY}" >> "$GITHUB_OUTPUT"
+          echo "digest_ref=${DIGEST_REF}" >> "$GITHUB_OUTPUT"
+
+      # GHCR에서 push된 이미지의 manifest 조회
+      - name: Fetch pushed image manifest
+        id: registry-manifest
+        if: steps.preflight.outputs.build_required == 'true'
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+
+          IMAGE_REPOSITORY="${REGISTRY}/${IMAGE_OWNER}/${IMAGE_NAME}"
+          IMAGE_REF="${IMAGE_REPOSITORY}:${IMAGE_TAG}"
+          RAW_MANIFEST_FILE="${RUNNER_TEMP}/image-manifest.json"
+
+          for attempt in 1 2 3 4 5; do
+            echo "Fetching image manifest: attempt ${attempt}/5"
+
+            if docker buildx imagetools inspect \
+              --raw "${IMAGE_REF}" > "${RAW_MANIFEST_FILE}"; then
+              echo "Image manifest fetched successfully."
+              break
+            fi
+
+            if [[ "${attempt}" == "5" ]]; then
+              echo "::error::Unable to read the pushed image from GHCR."
+              echo "::error::Image: ${IMAGE_REF}"
+              exit 1
+            fi
+
+            sleep 3
+          done
+
+          if [[ ! -s "${RAW_MANIFEST_FILE}" ]]; then
+            echo "::error::Fetched manifest file is empty."
+            exit 1
+          fi
+
+          echo "image_ref=${IMAGE_REF}" >> "$GITHUB_OUTPUT"
+          echo "manifest_file=${RAW_MANIFEST_FILE}" >> "$GITHUB_OUTPUT"
+
+      # Build digest와 Registry digest 비교
+      - name: Compare build and registry digests
+        id: digest-compare
+        if: steps.preflight.outputs.build_required == 'true'
+        shell: bash
+        env:
+          BUILD_DIGEST: ${{ steps.build-digest.outputs.build_digest }}
+          DIGEST_REF: ${{ steps.build-digest.outputs.digest_ref }}
+          RAW_MANIFEST_FILE: ${{ steps.registry-manifest.outputs.manifest_file }}
+        run: |
+          set -Eeuo pipefail
+
+          REGISTRY_DIGEST="$(
+            sha256sum "${RAW_MANIFEST_FILE}" \
+              | awk '{print "sha256:" $1}'
+          )"
+
+          if [[ ! "${REGISTRY_DIGEST}" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+            echo "::error::Invalid registry digest: ${REGISTRY_DIGEST}"
+            exit 1
+          fi
+
+          if [[ "${BUILD_DIGEST}" != "${REGISTRY_DIGEST}" ]]; then
+            echo "::error::Digest mismatch."
+            echo "::error::Build digest:    ${BUILD_DIGEST}"
+            echo "::error::Registry digest: ${REGISTRY_DIGEST}"
+            exit 1
+          fi
+
+          echo "Build and registry digests match."
+          echo "Digest: ${BUILD_DIGEST}"
+
+          echo "build_digest=${BUILD_DIGEST}" >> "$GITHUB_OUTPUT"
+          echo "registry_digest=${REGISTRY_DIGEST}" >> "$GITHUB_OUTPUT"
+          echo "digest_ref=${DIGEST_REF}" >> "$GITHUB_OUTPUT"
+
+      # Digest reference를 사용한 실제 Pull 검증
+      - name: Verify image by digest pull
+        id: digest-pull
+        if: steps.preflight.outputs.build_required == 'true'
+        shell: bash
+        env:
+          DIGEST_REF: ${{ steps.digest-compare.outputs.digest_ref }}
+        run: |
+          set -Eeuo pipefail
+
+          echo "Pulling immutable image reference:"
+          echo "${DIGEST_REF}"
+
+          docker pull "${DIGEST_REF}"
+
+          echo "Image is accessible by digest."
