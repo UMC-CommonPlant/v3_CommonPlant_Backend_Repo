@@ -22,6 +22,7 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -107,6 +108,29 @@ public class PlaceServiceImpl implements PlaceService {
         belongUserOnPlace(user.getNanoId(), code);
         Place place = getPlaceByCode(code);
         return new PlaceDto.getPlaceGridRes(place.getGridX(), place.getGridY());
+    }
+
+
+    @Override
+    public List<PlaceDto.getPlaceResUser> getPlaceMembers(String nanoId, String code) {
+        User user = userService.findActiveUserByNanoId(nanoId);
+
+        // 장소 멤버인지 확인
+        belongUserOnPlace(user.getNanoId(), code);
+
+        // 장소 존재 여부 확인
+        getPlaceByCode(code);
+
+        List<User> users = belongRepository
+                .getUserListByPlaceCodeOrderByCreatedAt(code)
+                .orElse(Collections.emptyList());
+
+        return users.stream()
+                .map(member -> new PlaceDto.getPlaceResUser(
+                        member.getName(),
+                        resolveImageUrl(member.getImgUrl())
+                ))
+                .collect(Collectors.toList());
     }
 
 
