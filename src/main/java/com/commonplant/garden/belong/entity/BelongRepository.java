@@ -35,4 +35,7 @@ public interface BelongRepository extends JpaRepository<Belong, Long> {
 
     @Query("select count(b.belongIdx) from Belong b where b.place.code = ?1")
     Integer getNumberOfUserInPlace(String code);
+
+    @Query("select b from Belong b where b.place.code = ?1")
+    List<Belong> findAllByPlaceCode(String code);
 }
