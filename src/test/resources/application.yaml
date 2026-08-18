@@ -1,0 +1,66 @@
+# [test] 프로필: Testcontainer 사용
+spring:
+  application:
+    name: garden
+  config:
+    activate:
+      on-profile: test
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+
+server:
+  servlet:
+    context-path: /api/v1
+
+jwt:
+  secret: DO-NOT-USE-IN-PRODUCTION-test-only-jwt-secret-key-0123456789
+  access-token-expiry: 3600000      # 1시간 (ms)
+  refresh-token-expiry: 2592000000  # 30일 (ms)
+  signup-token-expiry: 600000       # 10분 (ms)
+
+social:
+  google:
+    token-info-url: https://oauth2.googleapis.com/tokeninfo
+  kakao:
+    user-info-url: https://kapi.kakao.com/v2/user/me
+
+#s3:
+#  bucket: ${S3_BUCKET_NAME}
+#  presigned-url-expiration-minutes: 10
+#  image:
+#    max-upload-count: 5
+#    max-size-bytes: 10485760
+#    allowed-content-types:
+#      - image/jpeg
+#      - image/png
+#      - image/webp
+
+springdoc:
+  packages-to-scan: com.commonplant.garden
+  default-consumes-media-type: application/json;charset=UTF-8
+  default-produces-media-type: application/json;charset=UTF-8
+  swagger-ui:
+    path: api-docs
+    tags-sorter: method
+    operations-sorter: method
+  api-docs:
+    path: /api-docs/json
+    groups:
+      enabled: true
+  cache:
+    disabled: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, info   # health 엔드포인트만 공개
+  endpoint:
+    health:
+      show-details: never        # DB 정보 등 민감 정보 숨김 (운영 권장)
