@@ -1,8 +1,8 @@
-# [prod] 프로필: Database(PostgreSQL) 사용
+# [dev] 프로필: Database(PostgreSQL) 사용
 spring:
   config:
     activate:
-      on-profile: prod
+      on-profile: dev
 
   datasource:
     url: jdbc:postgresql://${DB_HOST}:${DB_PORT:5432}/${DB_NAME}
@@ -12,5 +12,5 @@ spring:
 
   jpa:
     hibernate:
-      ddl-auto: validate # update
+      ddl-auto: create-drop # update
     show-sql: false
