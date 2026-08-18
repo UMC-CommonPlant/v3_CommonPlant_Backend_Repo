@@ -1,23 +1,23 @@
 HELP.md
-.gradle
+.gradle/
 build/
-!gradle/wrapper/gradle-wrapper.jar
+
 !**/src/main/**/build/
 !**/src/test/**/build/
 
 ### IntelliJ IDEA ###
-.idea
+.idea/
 *.iws
 *.iml
 *.ipr
 out/
+
 !**/src/main/**/out/
 !**/src/test/**/out/
 
 ### Project ###
-#src/main/resources/*.yaml
-gradle/**
-postgres_data/**
+# src/main/resources/*.yaml
+postgres_data/
 
 start-prod.sh
 

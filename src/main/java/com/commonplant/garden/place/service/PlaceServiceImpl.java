@@ -9,8 +9,8 @@ import com.commonplant.garden.place.dto.PlaceDto;
 import com.commonplant.garden.place.entity.Place;
 import com.commonplant.garden.place.entity.PlaceRepository;
 import com.commonplant.garden.place.exception.PlaceErrorCode;
-// import com.commonplant.garden.plant.entity.Plant;
-// import com.commonplant.garden.plant.entity.PlantRepository;
+import com.commonplant.garden.plant.entity.Plant;
+import com.commonplant.garden.plant.entity.PlantRepository;
 import com.commonplant.garden.s3.service.S3Service;
 import com.commonplant.garden.user.entity.User;
 import com.commonplant.garden.user.service.UserServiceImpl;
@@ -22,6 +22,7 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -34,7 +35,7 @@ public class PlaceServiceImpl implements PlaceService {
     private final PlaceRepository placeRepository;
     private final BelongRepository belongRepository;
     // [TODO]: Plant, Memo 도메인 연동 후 해제
-    // private final PlantRepository plantRepository;
+    private final PlantRepository plantRepository;
     // private final MemoRepository memoRepository;
 
     private final UserServiceImpl userService;
@@ -111,6 +112,29 @@ public class PlaceServiceImpl implements PlaceService {
 
 
     @Override
+    public List<PlaceDto.getPlaceResUser> getPlaceMembers(String nanoId, String code) {
+        User user = userService.findActiveUserByNanoId(nanoId);
+
+        // 장소 멤버인지 확인
+        belongUserOnPlace(user.getNanoId(), code);
+
+        // 장소 존재 여부 확인
+        getPlaceByCode(code);
+
+        List<User> users = belongRepository
+                .getUserListByPlaceCodeOrderByCreatedAt(code)
+                .orElse(Collections.emptyList());
+
+        return users.stream()
+                .map(member -> new PlaceDto.getPlaceResUser(
+                        member.getName(),
+                        resolveImageUrl(member.getImgUrl())
+                ))
+                .collect(Collectors.toList());
+    }
+
+
+    @Override
     public List<PlaceDto.getPlaceBelongUser> getPlaceBelongUser(String nanoId) {
         User user = userService.findActiveUserByNanoId(nanoId);
 
@@ -178,34 +202,45 @@ public class PlaceServiceImpl implements PlaceService {
         User user = userService.findActiveUserByNanoId(nanoId);
 
         Place place = getPlaceByCode(code);
-        Long placeIdx = place.getPlaceIdx();
 
-        Optional<Belong> belongInfo =
-                belongRepository.getBelongByUserAndPlace(user.getNanoId(), place.getCode());
-        if (belongInfo.isEmpty()) {
-            throw new BusinessException(PlaceErrorCode.USER_NOT_ON_PLACE);
-        }
+        // 팀짱만 삭제 가능
+        validateOwner(user, place);
 
-        // [TODO]: Plant, Memo 도메인 연동 후 해제
-        // [TODO]: 장소에 속한 식물의 idx를 반환
-        /*
-        List<Long> plants = plantRepository.findAllByPlace(place).stream()
-                .map(Plant::getPlantIdx)
-                .collect(Collectors.toList());
-
-        for (Long plantIdx : plants) {
-            List<Memo> memos = memoRepository.findByPlantIdx(plantIdx);
-            for (Memo memo : memos) {
-                memoRepository.deleteById(memo.getMemoIdx());
-            }
-            plantRepository.deleteById(plantIdx);
-        }
-         */
-        deleteImageIfPresent(nanoId, place.getImgUrl());
-        placeRepository.deleteById(placeIdx);
+        // 식물, Belong 및 장소 이미지를 함께 정리
+        deletePlaceWithRelations(place);
     }
 
     // Helper Methods
+    /*
+        팀짱 여부 검증
+     */
+    private void validateOwner(User user, Place place) {
+        if (!place.getOwner().getUserIdx().equals(user.getUserIdx())) {
+            throw new BusinessException(PlaceErrorCode.NOT_PLACE_OWNER);
+        }
+    }
+
+    /*
+     * 장소 완전 삭제: Plant, Memo, Belong 및 장소 이미지를 함께 정리
+     */
+    private void deletePlaceWithRelations(Place place) {
+        List<Plant> plants = plantRepository.findAllByPlaceIdOrderByPlantIdxDesc(place.getPlaceIdx());
+
+        // 장소에 속한 Plant 삭제
+        plantRepository.deleteAll(plants);
+
+        // 장소에 속한 멤버(Belong) 삭제
+        List<Belong> belongs = belongRepository.findAllByPlaceCode(place.getCode());
+
+        belongRepository.deleteAll(belongs);
+
+        // 장소 이미지 삭제
+        deleteImageIfPresent(place.getOwner().getNanoId(), place.getImgUrl());
+
+        // 장소 삭제
+        placeRepository.deleteById(place.getPlaceIdx());
+    }
+
     /*
         해당 장소에 속한 사용자 수 조회
      */

@@ -206,6 +206,67 @@ public class PlaceController {
         return ResponseEntity.ok(new JsonResponse(true, 200, "getPlace", res));
     }
 
+    @Operation(summary = "장소 멤버 목록 조회", description = "가입(등록)된 순서대로 장소 멤버 목록을 조회합니다.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "멤버 목록 조회 성공",
+                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            examples = @ExampleObject(value = """
+                                {
+                                  "timeStamp": "2026-07-24 10:00:00",
+                                  "status": 200,
+                                  "message": "getPlaceMembers",
+                                  "result": [
+                                    {
+                                      "name": "커먼 맘",
+                                      "image": "https://.../user.png"
+                                    },
+                                    {
+                                      "name": "커먼 파파",
+                                      "image": "https://.../user2.png"
+                                    }
+                                  ],
+                                  "success": true
+                                }
+                                """))),
+            @ApiResponse(responseCode = "403", description = "장소 접근 권한 없음",
+                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            examples = @ExampleObject(value = """
+                                {
+                                  "timeStamp": "2026-07-24 10:00:00",
+                                  "status": 403,
+                                  "message": "P103",
+                                  "result": null,
+                                  "success": false
+                                }
+                                """))),
+            @ApiResponse(responseCode = "404", description = "장소 없음",
+                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            examples = @ExampleObject(value = """
+                                {
+                                  "timeStamp": "2026-07-24 10:00:00",
+                                  "status": 404,
+                                  "message": "P101",
+                                  "result": null,
+                                  "success": false
+                                }
+                                """)))
+    })
+    @GetMapping("/{code}/members")
+    public ResponseEntity<JsonResponse> getPlaceMembers(
+            @Parameter(hidden = true) @AuthenticationPrincipal String nanoId,
+            @Parameter(description = "장소 코드", example = "ABCabc") @PathVariable String code) {
+
+        log.info("[API] getPlaceMembers");
+
+        UserResponse response = userService.getUserByNanoId(nanoId);
+        List<PlaceDto.getPlaceResUser> members =
+                placeService.getPlaceMembers(response.getId(), code);
+
+        return ResponseEntity.ok(
+                new JsonResponse(true, 200, "getPlaceMembers", members)
+        );
+    }
+
     @Operation(summary = "내 정원 조회", description = "사용자가 속한 장소 목록과 메인 정보를 조회합니다.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "정원 조회 성공",

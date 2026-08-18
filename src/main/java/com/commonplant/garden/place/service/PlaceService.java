@@ -14,6 +14,8 @@ public interface PlaceService {
 
     PlaceDto.getPlaceGridRes getPlaceGrid(String nanoId, String code);
 
+    List<PlaceDto.getPlaceResUser> getPlaceMembers(String nanoId, String code);
+
     List<PlaceDto.getPlaceBelongUser> getPlaceBelongUser(String nanoId);
 
     PlaceDto.updatePlaceRes updatePlace(String nanoId, String code, PlaceDto.updatePlaceReq req, MultipartFile image);
