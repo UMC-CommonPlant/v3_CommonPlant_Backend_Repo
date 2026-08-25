@@ -13,43 +13,28 @@ services:
       - ./postgres_data:/var/lib/postgresql/data
     restart: always
 
-  minio:
-    image: quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z
-    container_name: common-minio
+  garage:
+    image: dxflrs/garage:v2.3.0
+    container_name: common-garage
     ports:
-      - "9000:9000"
-      - "9001:9001"
+      - "3900:3900"
+      - "3903:3903"
     environment:
-      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:-commonplant}
-      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:-commonplant-local-password}
-      TZ: Asia/Seoul
-    command: server /data --console-address ":9001"
+      GARAGE_DEFAULT_ACCESS_KEY: ${GARAGE_ACCESS_KEY:-GK0123456789abcdef0123456789abcdef}
+      GARAGE_DEFAULT_SECRET_KEY: ${GARAGE_SECRET_KEY:-0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef}
+      GARAGE_DEFAULT_BUCKET: ${GARAGE_BUCKET_NAME:-commonplant-local}
+    command: ["/garage", "server", "--single-node", "--default-bucket"]
     volumes:
-      - minio_data:/data
+      - ./garage.toml:/etc/garage.toml:ro
+      - garage_meta:/var/lib/garage/meta
+      - garage_data:/var/lib/garage/data
     healthcheck:
-      test: ["CMD", "mc", "ready", "local"]
+      test: ["CMD", "/garage", "status"]
       interval: 5s
       timeout: 5s
       retries: 10
     restart: always
 
-  minio-init:
-    image: minio/mc:RELEASE.2025-08-13T08-35-41Z
-    container_name: common-minio-init
-    depends_on:
-      minio:
-        condition: service_healthy
-    environment:
-      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-commonplant}
-      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-commonplant-local-password}
-      MINIO_BUCKET_NAME: ${MINIO_BUCKET_NAME:-commonplant-local}
-    entrypoint:
-      - /bin/sh
-      - -c
-      - |
-        set -e
-        mc alias set local http://minio:9000 "$$MINIO_ACCESS_KEY" "$$MINIO_SECRET_KEY"
-        mc mb --ignore-existing "local/$$MINIO_BUCKET_NAME"
-
 volumes:
-  minio_data:
+  garage_meta:
+  garage_data:
