@@ -1,6 +1,6 @@
 package com.commonplant.garden.image.service;
 
-import com.commonplant.garden.common.config.MinioProperties;
+import com.commonplant.garden.common.config.GarageProperties;
 import com.commonplant.garden.common.exception.BusinessException;
 import com.commonplant.garden.common.util.IdUtil;
 import com.commonplant.garden.s3.dto.S3Response;
@@ -12,11 +12,6 @@ import com.commonplant.garden.user.entity.User;
 import com.commonplant.garden.user.entity.UserRepository;
 import com.commonplant.garden.user.enums.UserStatus;
 import com.commonplant.garden.user.exception.UserErrorCode;
-import io.minio.GetPresignedObjectUrlArgs;
-import io.minio.Http.Method;
-import io.minio.MinioClient;
-import io.minio.PutObjectArgs;
-import io.minio.RemoveObjectArgs;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -25,25 +20,34 @@ import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
+import software.amazon.awssdk.core.exception.SdkException;
+import software.amazon.awssdk.core.sync.RequestBody;
+import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
+import software.amazon.awssdk.services.s3.model.GetObjectRequest;
+import software.amazon.awssdk.services.s3.model.PutObjectRequest;
+import software.amazon.awssdk.services.s3.presigner.S3Presigner;
+import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
 
+import java.io.IOException;
 import java.io.InputStream;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Locale;
-import java.util.concurrent.TimeUnit;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
-public class MinioImageService implements S3Service {
+public class GarageImageService implements S3Service {
 
     private static final String IMAGE_KEY_PREFIX = "images";
     private static final int MAX_EXTENSION_LENGTH = 10;
 
-    private final MinioClient minioClient;
-    private final MinioProperties minioProperties;
+    private final S3Client garageClient;
+    private final S3Presigner garagePresigner;
+    private final GarageProperties garageProperties;
     private final ImageRepository imageRepository;
     private final UserRepository userRepository;
 
@@ -140,7 +144,7 @@ public class MinioImageService implements S3Service {
     }
 
     private void validateImageCount(int imageCount) {
-        if (imageCount < 1 || imageCount > minioProperties.image().maxUploadCount()) {
+        if (imageCount < 1 || imageCount > garageProperties.image().maxUploadCount()) {
             throw new BusinessException(S3ErrorCode.TOO_MANY_IMAGES);
         }
     }
@@ -151,57 +155,60 @@ public class MinioImageService implements S3Service {
         }
 
         validateImageContentType(imageFile.getContentType());
-        if (imageFile.getSize() > minioProperties.image().maxSizeBytes()) {
+        if (imageFile.getSize() > garageProperties.image().maxSizeBytes()) {
             throw new BusinessException(S3ErrorCode.INVALID_IMAGE_SIZE);
         }
     }
 
     private void validateImageContentType(String contentType) {
         String normalizedContentType = normalizeContentType(contentType);
-        if (!minioProperties.image().allowedContentTypes().contains(normalizedContentType)) {
+        if (!garageProperties.image().allowedContentTypes().contains(normalizedContentType)) {
             throw new BusinessException(S3ErrorCode.INVALID_IMAGE_CONTENT_TYPE);
         }
     }
 
     private String createPresignedGetUrl(String imageKey) {
+        GetObjectRequest getObjectRequest = GetObjectRequest.builder()
+                .bucket(garageProperties.bucketName())
+                .key(imageKey)
+                .build();
+        GetObjectPresignRequest presignRequest = GetObjectPresignRequest.builder()
+                .signatureDuration(presignedUrlDuration())
+                .getObjectRequest(getObjectRequest)
+                .build();
+
         try {
-            return minioClient.getPresignedObjectUrl(
-                    GetPresignedObjectUrlArgs.builder()
-                            .method(Method.GET)
-                            .bucket(minioProperties.bucketName())
-                            .object(imageKey)
-                            .expiry((int) minioProperties.presignedUrlExpirationMinutes(), TimeUnit.MINUTES)
-                            .build()
-            );
-        } catch (Exception e) {
+            return garagePresigner.presignGetObject(presignRequest).url().toString();
+        } catch (SdkException e) {
             throw new BusinessException(S3ErrorCode.IMAGE_URL_GENERATION_FAILED);
         }
     }
 
     private void putImageObject(String imageKey, MultipartFile imageFile) {
+        PutObjectRequest putObjectRequest = PutObjectRequest.builder()
+                .bucket(garageProperties.bucketName())
+                .key(imageKey)
+                .contentType(normalizeContentType(imageFile.getContentType()))
+                .contentLength(imageFile.getSize())
+                .build();
+
         try (InputStream inputStream = imageFile.getInputStream()) {
-            minioClient.putObject(
-                    PutObjectArgs.builder()
-                            .bucket(minioProperties.bucketName())
-                            .object(imageKey)
-                            .stream(inputStream, imageFile.getSize(), -1L)
-                            .contentType(normalizeContentType(imageFile.getContentType()))
-                            .build()
+            garageClient.putObject(
+                    putObjectRequest,
+                    RequestBody.fromInputStream(inputStream, imageFile.getSize())
             );
-        } catch (Exception e) {
+        } catch (IOException | SdkException e) {
             throw new BusinessException(S3ErrorCode.IMAGE_UPLOAD_FAILED);
         }
     }
 
     private void deleteObject(String imageKey) {
         try {
-            minioClient.removeObject(
-                    RemoveObjectArgs.builder()
-                            .bucket(minioProperties.bucketName())
-                            .object(imageKey)
-                            .build()
-            );
-        } catch (Exception e) {
+            garageClient.deleteObject(DeleteObjectRequest.builder()
+                    .bucket(garageProperties.bucketName())
+                    .key(imageKey)
+                    .build());
+        } catch (SdkException e) {
             throw new BusinessException(S3ErrorCode.IMAGE_DELETE_FAILED);
         }
     }
@@ -239,12 +246,12 @@ public class MinioImageService implements S3Service {
         try {
             deleteObject(imageKey);
         } catch (BusinessException e) {
-            log.error("Failed to clean up MinIO image after {}: key={}", operation, imageKey, e);
+            log.error("Failed to clean up Garage image after {}: key={}", operation, imageKey, e);
         }
     }
 
     private Duration presignedUrlDuration() {
-        return Duration.ofMinutes(minioProperties.presignedUrlExpirationMinutes());
+        return Duration.ofMinutes(garageProperties.presignedUrlExpirationMinutes());
     }
 
     private String createImageKey(String nanoId, String fileName) {

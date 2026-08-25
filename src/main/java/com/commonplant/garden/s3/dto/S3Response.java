@@ -34,7 +34,7 @@ public class S3Response {
         @Schema(description = "이미지 파일 크기(byte)", example = "204800")
         private Long sizeBytes;
 
-        @Schema(description = "이미지 다운로드 presigned URL", example = "https://minio.example.com/garden-images/images/user-nano-id/sample.png?X-Amz-Algorithm=...")
+        @Schema(description = "이미지 다운로드 presigned URL", example = "https://garage.example.com/commonplant/images/user-nano-id/sample.png?X-Amz-Algorithm=...")
         private String downloadUrl;
 
         @Schema(description = "다운로드 URL 만료 시각", example = "2026-05-12T12:00:00Z")
