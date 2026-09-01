@@ -35,6 +35,38 @@ services:
       retries: 10
     restart: always
 
+  garage-init:
+    image: dxflrs/garage:v2.3.0
+    container_name: common-garage-init
+    network_mode: "service:garage"
+    depends_on:
+      garage:
+        condition: service_healthy
+    command:
+      - /garage
+      - bucket
+      - website
+      - --allow
+      - ${GARAGE_BUCKET_NAME:-commonplant-local}
+    volumes:
+      - ./garage.toml:/etc/garage.toml:ro
+      - garage_meta:/var/lib/garage/meta
+    restart: "no"
+
+  garage-public:
+    image: nginx:1.27-alpine
+    container_name: common-garage-public
+    depends_on:
+      garage-init:
+        condition: service_completed_successfully
+    ports:
+      - "3902:80"
+    environment:
+      GARAGE_BUCKET_NAME: ${GARAGE_BUCKET_NAME:-commonplant-local}
+    volumes:
+      - ./garage-public.conf.template:/etc/nginx/templates/default.conf.template:ro
+    restart: always
+
 volumes:
   garage_meta:
   garage_data:
