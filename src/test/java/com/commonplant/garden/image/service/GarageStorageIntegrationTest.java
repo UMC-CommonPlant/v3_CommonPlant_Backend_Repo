@@ -9,17 +9,13 @@ import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.S3Configuration;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
-import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
-import software.amazon.awssdk.services.s3.presigner.S3Presigner;
-import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
 
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
-import java.time.Duration;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -33,15 +29,18 @@ class GarageStorageIntegrationTest {
     private static final String DEFAULT_SECRET_KEY =
             "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
     private static final String DEFAULT_BUCKET = "commonplant-local";
+    private static final String DEFAULT_PUBLIC_BASE_URL =
+            "http://localhost:3902";
 
     @Test
-    void uploadsDownloadsWithPresignedUrlAndDeletesObject() throws Exception {
+    void uploadsDownloadsFromPublicUrlAndDeletesObject() throws Exception {
         URI endpoint = URI.create(environment("GARAGE_ENDPOINT", DEFAULT_ENDPOINT));
         Region region = Region.of(environment("GARAGE_REGION", DEFAULT_REGION));
         String accessKey = environment("GARAGE_ACCESS_KEY", DEFAULT_ACCESS_KEY);
         String secretKey = environment("GARAGE_SECRET_KEY", DEFAULT_SECRET_KEY);
         String bucket = environment("GARAGE_BUCKET_NAME", DEFAULT_BUCKET);
-        String objectKey = "integration-tests/" + UUID.randomUUID() + ".txt";
+        String publicBaseUrl = environment("GARAGE_PUBLIC_BASE_URL", DEFAULT_PUBLIC_BASE_URL);
+        String objectKey = "images/integration-tests/" + UUID.randomUUID() + ".txt";
         byte[] content = "garage-integration-test".getBytes(StandardCharsets.UTF_8);
 
         StaticCredentialsProvider credentialsProvider = StaticCredentialsProvider.create(
@@ -56,37 +55,22 @@ class GarageStorageIntegrationTest {
                 .region(region)
                 .credentialsProvider(credentialsProvider)
                 .serviceConfiguration(s3Configuration)
-                .build();
-             S3Presigner presigner = S3Presigner.builder()
-                     .endpointOverride(endpoint)
-                     .region(region)
-                     .credentialsProvider(credentialsProvider)
-                     .serviceConfiguration(s3Configuration)
-                     .build()) {
+                .build()) {
             try {
                 client.putObject(
                         PutObjectRequest.builder()
                                 .bucket(bucket)
                                 .key(objectKey)
                                 .contentType("text/plain")
+                                .cacheControl("public, max-age=31536000, immutable")
                                 .build(),
                         RequestBody.fromBytes(content)
                 );
 
-                URI downloadUri = presigner.presignGetObject(
-                                GetObjectPresignRequest.builder()
-                                        .signatureDuration(Duration.ofMinutes(1))
-                                        .getObjectRequest(GetObjectRequest.builder()
-                                                .bucket(bucket)
-                                                .key(objectKey)
-                                                .build())
-                                        .build()
-                        )
-                        .url()
-                        .toURI();
+                URI imageUri = URI.create(publicBaseUrl.replaceAll("/+$", "") + "/" + objectKey);
 
                 HttpResponse<byte[]> response = HttpClient.newHttpClient().send(
-                        HttpRequest.newBuilder(downloadUri).GET().build(),
+                        HttpRequest.newBuilder(imageUri).GET().build(),
                         HttpResponse.BodyHandlers.ofByteArray()
                 );
 
