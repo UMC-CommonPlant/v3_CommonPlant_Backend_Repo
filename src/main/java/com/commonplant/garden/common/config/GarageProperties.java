@@ -13,13 +13,13 @@ public record GarageProperties(
         String secretKey,
         String bucketName,
         Boolean pathStyleAccessEnabled,
-        long presignedUrlExpirationMinutes,
+        String publicBaseUrl,
         Image image
 ) {
     private static final String DEFAULT_ENDPOINT = "http://localhost:3900";
     private static final String DEFAULT_REGION = "garage";
     private static final String DEFAULT_BUCKET_NAME = "commonplant-local";
-    private static final long DEFAULT_PRESIGNED_URL_EXPIRATION_MINUTES = 10;
+    private static final String DEFAULT_PUBLIC_BASE_URL = "http://localhost:3902";
     private static final int DEFAULT_MAX_UPLOAD_COUNT = 5;
     private static final long DEFAULT_MAX_SIZE_BYTES = 10_485_760;
     private static final List<String> DEFAULT_ALLOWED_CONTENT_TYPES =
@@ -38,8 +38,10 @@ public record GarageProperties(
         if (pathStyleAccessEnabled == null) {
             pathStyleAccessEnabled = true;
         }
-        if (presignedUrlExpirationMinutes <= 0) {
-            presignedUrlExpirationMinutes = DEFAULT_PRESIGNED_URL_EXPIRATION_MINUTES;
+        if (!StringUtils.hasText(publicBaseUrl)) {
+            publicBaseUrl = DEFAULT_PUBLIC_BASE_URL;
+        } else {
+            publicBaseUrl = publicBaseUrl.replaceAll("/+$", "");
         }
         if (image == null) {
             image = new Image(

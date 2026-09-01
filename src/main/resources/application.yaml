@@ -25,7 +25,7 @@ garage:
   secret-key: ${GARAGE_SECRET_KEY:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef}
   bucket-name: ${GARAGE_BUCKET_NAME:commonplant-local}
   path-style-access-enabled: ${GARAGE_PATH_STYLE_ACCESS_ENABLED:true}
-  presigned-url-expiration-minutes: 10
+  public-base-url: ${GARAGE_PUBLIC_BASE_URL:http://localhost:3902}
   image:
     max-upload-count: 5
     max-size-bytes: 10485760

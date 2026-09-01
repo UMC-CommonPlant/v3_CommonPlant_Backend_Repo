@@ -7,6 +7,7 @@ import com.commonplant.garden.s3.dto.S3Response;
 import com.commonplant.garden.s3.entity.Image;
 import com.commonplant.garden.s3.entity.ImageRepository;
 import com.commonplant.garden.s3.exception.S3ErrorCode;
+import com.commonplant.garden.s3.service.ImagePath;
 import com.commonplant.garden.s3.service.S3Service;
 import com.commonplant.garden.user.entity.User;
 import com.commonplant.garden.user.entity.UserRepository;
@@ -24,15 +25,10 @@ import software.amazon.awssdk.core.exception.SdkException;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
-import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
-import software.amazon.awssdk.services.s3.presigner.S3Presigner;
-import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.time.Duration;
-import java.time.Instant;
 import java.util.List;
 import java.util.Locale;
 
@@ -42,11 +38,10 @@ import java.util.Locale;
 @Transactional(readOnly = true)
 public class GarageImageService implements S3Service {
 
-    private static final String IMAGE_KEY_PREFIX = "images";
     private static final int MAX_EXTENSION_LENGTH = 10;
+    private static final String PUBLIC_CACHE_CONTROL = "public, max-age=31536000, immutable";
 
     private final S3Client garageClient;
-    private final S3Presigner garagePresigner;
     private final GarageProperties garageProperties;
     private final ImageRepository imageRepository;
     private final UserRepository userRepository;
@@ -54,17 +49,14 @@ public class GarageImageService implements S3Service {
     @Override
     public String getImageUrl(String key) {
         Image image = findImageByKey(key);
-        return createPresignedGetUrl(image.getImageKey());
+        return createPublicUrl(image.getImageKey());
     }
 
     @Override
     public S3Response.ImageInfo getImage(String nanoId, String key) {
         findActiveUser(nanoId);
         Image image = findImageByKey(key);
-        Duration expiresIn = presignedUrlDuration();
-        Instant expiresAt = Instant.now().plus(expiresIn);
-
-        return S3Response.ImageInfo.of(image, createPresignedGetUrl(image.getImageKey()), expiresAt);
+        return S3Response.ImageInfo.of(image, createPublicUrl(image.getImageKey()));
     }
 
     @Override
@@ -79,12 +71,23 @@ public class GarageImageService implements S3Service {
     @Override
     @Transactional
     public S3Response.ImageInfo updateImage(String nanoId, String key, MultipartFile imageFile) {
+        return updateImage(nanoId, key, ImagePath.fromImageKey(key), imageFile);
+    }
+
+    @Override
+    @Transactional
+    public S3Response.ImageInfo updateImage(
+            String nanoId,
+            String key,
+            ImagePath imagePath,
+            MultipartFile imageFile
+    ) {
         findActiveUser(nanoId);
         Image image = findImageByKey(key);
         validateMultipartImage(imageFile);
 
         String oldImageKey = image.getImageKey();
-        String newImageKey = createImageKey(nanoId, imageFile.getOriginalFilename());
+        String newImageKey = createImageKey(imagePath, imageFile.getOriginalFilename());
         putImageObject(newImageKey, imageFile);
         deleteObjectOnRollback(newImageKey);
 
@@ -97,11 +100,21 @@ public class GarageImageService implements S3Service {
     @Override
     @Transactional
     public S3Response.CompletedImages uploadImages(String nanoId, List<MultipartFile> imageFiles) {
+        return uploadImages(nanoId, ImagePath.legacy(nanoId), imageFiles);
+    }
+
+    @Override
+    @Transactional
+    public S3Response.CompletedImages uploadImages(
+            String nanoId,
+            ImagePath imagePath,
+            List<MultipartFile> imageFiles
+    ) {
         User user = findActiveUser(nanoId);
         validateImageCount(imageFiles == null ? 0 : imageFiles.size());
 
         List<Image> images = imageFiles.stream()
-                .map(imageFile -> uploadImage(user, imageFile))
+                .map(imageFile -> uploadImage(user, imagePath, imageFile))
                 .toList();
 
         return S3Response.CompletedImages.builder()
@@ -114,14 +127,24 @@ public class GarageImageService implements S3Service {
     @Override
     @Transactional
     public S3Response.ImageInfo uploadImage(String nanoId, MultipartFile imageFile) {
-        User user = findActiveUser(nanoId);
-        return S3Response.ImageInfo.from(uploadImage(user, imageFile));
+        return uploadImage(nanoId, ImagePath.legacy(nanoId), imageFile);
     }
 
-    private Image uploadImage(User user, MultipartFile imageFile) {
+    @Override
+    @Transactional
+    public S3Response.ImageInfo uploadImage(
+            String nanoId,
+            ImagePath imagePath,
+            MultipartFile imageFile
+    ) {
+        User user = findActiveUser(nanoId);
+        return S3Response.ImageInfo.from(uploadImage(user, imagePath, imageFile));
+    }
+
+    private Image uploadImage(User user, ImagePath imagePath, MultipartFile imageFile) {
         validateMultipartImage(imageFile);
 
-        String imageKey = createImageKey(user.getNanoId(), imageFile.getOriginalFilename());
+        String imageKey = createImageKey(imagePath, imageFile.getOriginalFilename());
         putImageObject(imageKey, imageFile);
         deleteObjectOnRollback(imageKey);
 
@@ -167,21 +190,8 @@ public class GarageImageService implements S3Service {
         }
     }
 
-    private String createPresignedGetUrl(String imageKey) {
-        GetObjectRequest getObjectRequest = GetObjectRequest.builder()
-                .bucket(garageProperties.bucketName())
-                .key(imageKey)
-                .build();
-        GetObjectPresignRequest presignRequest = GetObjectPresignRequest.builder()
-                .signatureDuration(presignedUrlDuration())
-                .getObjectRequest(getObjectRequest)
-                .build();
-
-        try {
-            return garagePresigner.presignGetObject(presignRequest).url().toString();
-        } catch (SdkException e) {
-            throw new BusinessException(S3ErrorCode.IMAGE_URL_GENERATION_FAILED);
-        }
+    private String createPublicUrl(String imageKey) {
+        return garageProperties.publicBaseUrl() + "/" + imageKey;
     }
 
     private void putImageObject(String imageKey, MultipartFile imageFile) {
@@ -190,6 +200,7 @@ public class GarageImageService implements S3Service {
                 .key(imageKey)
                 .contentType(normalizeContentType(imageFile.getContentType()))
                 .contentLength(imageFile.getSize())
+                .cacheControl(PUBLIC_CACHE_CONTROL)
                 .build();
 
         try (InputStream inputStream = imageFile.getInputStream()) {
@@ -250,12 +261,8 @@ public class GarageImageService implements S3Service {
         }
     }
 
-    private Duration presignedUrlDuration() {
-        return Duration.ofMinutes(garageProperties.presignedUrlExpirationMinutes());
-    }
-
-    private String createImageKey(String nanoId, String fileName) {
-        return IMAGE_KEY_PREFIX + "/" + nanoId + "/" + IdUtil.generateUuid() + extractExtension(fileName);
+    private String createImageKey(ImagePath imagePath, String fileName) {
+        return imagePath.directory() + "/" + IdUtil.generateUuid() + extractExtension(fileName);
     }
 
     private String extractExtension(String fileName) {

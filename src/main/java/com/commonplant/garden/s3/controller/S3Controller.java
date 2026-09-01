@@ -36,8 +36,8 @@ public class S3Controller {
     private final S3Service s3Service;
 
     @Operation(
-            summary = "이미지 다운로드 URL 조회",
-            description = "이미지 key로 접근 가능한 presigned download URL을 조회합니다."
+            summary = "공개 이미지 URL 조회",
+            description = "이미지 key로 만료되지 않는 Garage 공개 URL을 조회합니다."
     )
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "이미지 조회 성공"),
@@ -47,7 +47,7 @@ public class S3Controller {
     @GetMapping("/images")
     public ResponseEntity<JsonResponse> getImage(
             @Parameter(hidden = true) @AuthenticationPrincipal String nanoId,
-            @Parameter(description = "이미지 key", example = "images/user-nano-id/sample.png")
+            @Parameter(description = "이미지 key", example = "images/place-code/plants/1/sample.png")
             @RequestParam("key") String key
     ) {
         S3Response.ImageInfo response = s3Service.getImage(nanoId, key);
@@ -63,7 +63,7 @@ public class S3Controller {
     @DeleteMapping("/images")
     public ResponseEntity<JsonResponse> deleteImage(
             @Parameter(hidden = true) @AuthenticationPrincipal String nanoId,
-            @Parameter(description = "이미지 key", example = "images/user-nano-id/sample.png")
+            @Parameter(description = "이미지 key", example = "images/users/user-nano-id/sample.png")
             @RequestParam("key") String key
     ) {
         s3Service.deleteImage(nanoId, key);
@@ -83,7 +83,7 @@ public class S3Controller {
     @PutMapping(value = "/images", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<JsonResponse> updateImage(
             @Parameter(hidden = true) @AuthenticationPrincipal String nanoId,
-            @Parameter(description = "교체 대상 이미지 key", example = "images/user-nano-id/sample.png")
+            @Parameter(description = "교체 대상 이미지 key", example = "images/users/user-nano-id/sample.png")
             @RequestParam("key") String key,
             @Parameter(
                     description = "교체할 이미지 파일",
@@ -98,7 +98,7 @@ public class S3Controller {
 
     @Operation(
             summary = "이미지 다중 업로드",
-            description = "이미지 파일을 1개 이상, 최대 5개까지 업로드합니다. 허용 타입은 jpeg, png, webp이고 파일당 최대 크기는 10MB입니다."
+            description = "레거시 범용 경로에 이미지 파일을 1개 이상, 최대 5개까지 업로드합니다. 도메인 이미지는 각 도메인 서비스에서 용도별 경로를 지정해야 합니다. 허용 타입은 jpeg, png, webp이고 파일당 최대 크기는 10MB입니다."
     )
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "이미지 업로드 성공"),
