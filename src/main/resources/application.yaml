@@ -18,16 +18,21 @@ social:
   kakao:
     user-info-url: https://kapi.kakao.com/v2/user/me
 
-#s3:
-#  bucket: ${S3_BUCKET_NAME}
-#  presigned-url-expiration-minutes: 10
-#  image:
-#    max-upload-count: 5
-#    max-size-bytes: 10485760
-#    allowed-content-types:
-#      - image/jpeg
-#      - image/png
-#      - image/webp
+garage:
+  endpoint: ${GARAGE_ENDPOINT:http://localhost:3900}
+  region: ${GARAGE_REGION:garage}
+  access-key: ${GARAGE_ACCESS_KEY:GK0123456789abcdef0123456789abcdef}
+  secret-key: ${GARAGE_SECRET_KEY:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef}
+  bucket-name: ${GARAGE_BUCKET_NAME:commonplant-local}
+  path-style-access-enabled: ${GARAGE_PATH_STYLE_ACCESS_ENABLED:true}
+  public-base-url: ${GARAGE_PUBLIC_BASE_URL:http://localhost:3902}
+  image:
+    max-upload-count: 5
+    max-size-bytes: 10485760
+    allowed-content-types:
+      - image/jpeg
+      - image/png
+      - image/webp
 
 springdoc:
   packages-to-scan: com.commonplant.garden
