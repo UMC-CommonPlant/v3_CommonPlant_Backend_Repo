@@ -1,0 +1,268 @@
+name: Build Dev Image
+
+on:
+  push:
+    branches:
+      - develop
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: build-dev-image-${{ github.sha }}
+  cancel-in-progress: false
+
+env:
+  REGISTRY: ${{ vars.CONTAINER_REGISTRY }}
+  IMAGE_NAME: ${{ vars.CONTAINER_IMAGE_NAME }}
+  IMAGE_TAG: sha-${{ github.sha }}
+
+jobs:
+  build-dev-image:
+    name: build-dev-image
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+
+      # ------------------------------------------------------------
+      # 1. 이미지 경로 생성
+      # ------------------------------------------------------------
+      - name: Prepare image reference
+        id: image
+        shell: bash
+        env:
+          REPOSITORY_OWNER: ${{ github.repository_owner }}
+        run: |
+          set -Eeuo pipefail
+
+          if [[ -z "${REGISTRY}" ]]; then
+            echo "::error::REGISTRY is empty."
+            exit 1
+          fi
+
+          if [[ -z "${IMAGE_NAME}" ]]; then
+            echo "::error::IMAGE_NAME is empty."
+            exit 1
+          fi
+
+          IMAGE_OWNER="$(
+            printf '%s' "${REPOSITORY_OWNER}" \
+              | tr '[:upper:]' '[:lower:]'
+          )"
+
+          IMAGE_REPOSITORY="${REGISTRY}/${IMAGE_OWNER}/${IMAGE_NAME}"
+          IMAGE_REF="${IMAGE_REPOSITORY}:${IMAGE_TAG}"
+
+          # Shell step에서 공통 사용
+          echo "IMAGE_REPOSITORY=${IMAGE_REPOSITORY}" >> "$GITHUB_ENV"
+          echo "IMAGE_REF=${IMAGE_REF}" >> "$GITHUB_ENV"
+
+          # Action input에서 사용
+          echo "repository=${IMAGE_REPOSITORY}" >> "$GITHUB_OUTPUT"
+          echo "ref=${IMAGE_REF}" >> "$GITHUB_OUTPUT"
+
+          echo "Image repository: ${IMAGE_REPOSITORY}"
+          echo "Image reference:  ${IMAGE_REF}"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
+
+      - name: Log in to GHCR
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # ------------------------------------------------------------
+      # 2. 동일 SHA 이미지 존재 여부 확인
+      # ------------------------------------------------------------
+      - name: Check existing SHA image
+        id: preflight
+        shell: bash
+        env:
+          EXPECTED_REVISION: ${{ github.sha }}
+        run: |
+          set -Eeuo pipefail
+
+          echo "Checking image: ${IMAGE_REF}"
+
+          if ! docker buildx imagetools inspect "${IMAGE_REF}" >/dev/null 2>&1; then
+            echo "Image does not exist. Build is required."
+            echo "build_required=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "Image already exists: ${IMAGE_REF}"
+
+          LABELS="$(
+            docker buildx imagetools inspect "${IMAGE_REF}" \
+              --format '{{json .Image.Config.Labels}}'
+          )"
+
+          EXISTING_REVISION="$(
+            jq -r '."org.opencontainers.image.revision" // empty' \
+              <<< "${LABELS}"
+          )"
+
+          if [[ -z "${EXISTING_REVISION}" ]]; then
+            echo "::error::Existing image has no revision label."
+            exit 1
+          fi
+
+          if [[ "${EXISTING_REVISION}" != "${EXPECTED_REVISION}" ]]; then
+            echo "::error::Immutable SHA tag violation detected."
+            echo "::error::Expected: ${EXPECTED_REVISION}"
+            echo "::error::Actual:   ${EXISTING_REVISION}"
+            exit 1
+          fi
+
+          echo "Existing image matches github.sha."
+          echo "build_required=false" >> "$GITHUB_OUTPUT"
+
+      # ------------------------------------------------------------
+      # 3. Build 준비
+      # ------------------------------------------------------------
+      - name: Set up Java
+        if: steps.preflight.outputs.build_required == 'true'
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
+        with:
+          distribution: temurin
+          java-version: ${{ vars.JAVA_VERSION }}
+          cache: gradle
+
+      - name: Grant execute permission
+        if: steps.preflight.outputs.build_required == 'true'
+        run: chmod +x gradlew
+
+      - name: Verify checked-out commit
+        if: steps.preflight.outputs.build_required == 'true'
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+
+          CHECKED_OUT_SHA="$(git rev-parse HEAD)"
+
+          if [[ "${CHECKED_OUT_SHA}" != "${GITHUB_SHA}" ]]; then
+            echo "::error::Checked-out commit does not match github.sha."
+            echo "::error::Checked out: ${CHECKED_OUT_SHA}"
+            echo "::error::Expected:    ${GITHUB_SHA}"
+            exit 1
+          fi
+
+      # ------------------------------------------------------------
+      # 4. Build & Push
+      # ------------------------------------------------------------
+      - name: Build and push image
+        id: build
+        if: steps.preflight.outputs.build_required == 'true'
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          platforms: linux/amd64
+          tags: ${{ steps.image.outputs.ref }}
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.version=${{ env.IMAGE_TAG }}
+          provenance: false
+          sbom: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # ------------------------------------------------------------
+      # 5. Push 결과 통합 검증
+      # ------------------------------------------------------------
+      - name: Verify pushed image
+        id: verify
+        if: steps.preflight.outputs.build_required == 'true'
+        shell: bash
+        env:
+          BUILD_DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          set -Eeuo pipefail
+
+          #
+          # 1. Buildx가 반환한 digest 검증
+          #
+          if [[ ! "${BUILD_DIGEST}" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+            echo "::error::Invalid build digest: ${BUILD_DIGEST}"
+            exit 1
+          fi
+
+          echo "Build digest: ${BUILD_DIGEST}"
+
+          #
+          # 2. GHCR manifest 조회
+          #
+          RAW_MANIFEST_FILE="${RUNNER_TEMP}/image-manifest.json"
+
+          for attempt in 1 2 3 4 5; do
+            echo "Fetching image manifest: attempt ${attempt}/5"
+
+            if docker buildx imagetools inspect \
+              --raw "${IMAGE_REF}" > "${RAW_MANIFEST_FILE}"; then
+              break
+            fi
+
+            if [[ "${attempt}" == "5" ]]; then
+              echo "::error::Unable to read pushed image from GHCR."
+              echo "::error::Image: ${IMAGE_REF}"
+              exit 1
+            fi
+
+            sleep 3
+          done
+
+          if [[ ! -s "${RAW_MANIFEST_FILE}" ]]; then
+            echo "::error::Fetched manifest is empty."
+            exit 1
+          fi
+
+          #
+          # 3. Registry digest 계산
+          #
+          REGISTRY_DIGEST="$(
+            sha256sum "${RAW_MANIFEST_FILE}" \
+              | awk '{print "sha256:" $1}'
+          )"
+
+          if [[ ! "${REGISTRY_DIGEST}" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+            echo "::error::Invalid registry digest: ${REGISTRY_DIGEST}"
+            exit 1
+          fi
+
+          echo "Registry digest: ${REGISTRY_DIGEST}"
+
+          #
+          # 4. Build digest == Registry digest 검증
+          #
+          if [[ "${BUILD_DIGEST}" != "${REGISTRY_DIGEST}" ]]; then
+            echo "::error::Digest mismatch."
+            echo "::error::Build:    ${BUILD_DIGEST}"
+            echo "::error::Registry: ${REGISTRY_DIGEST}"
+            exit 1
+          fi
+
+          #
+          # 5. Digest reference 직접 Pull 검증
+          #
+          DIGEST_REF="${IMAGE_REPOSITORY}@${BUILD_DIGEST}"
+
+          echo "Pulling immutable image:"
+          echo "${DIGEST_REF}"
+
+          docker pull "${DIGEST_REF}"
+
+          echo "Image verification completed successfully."
+
+          echo "digest=${BUILD_DIGEST}" >> "$GITHUB_OUTPUT"
+          echo "digest_ref=${DIGEST_REF}" >> "$GITHUB_OUTPUT"

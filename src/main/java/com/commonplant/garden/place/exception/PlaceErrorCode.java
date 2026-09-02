@@ -19,7 +19,10 @@ public enum PlaceErrorCode implements ErrorCode {
     // createPlace validation
     PLACE_NAME_TOO_LONG(HttpStatus.BAD_REQUEST, "P107", "장소 이름은 최대 10자까지 가능합니다."),
     PLACE_ADDRESS_REQUIRED(HttpStatus.BAD_REQUEST, "P108", "장소 주소는 필수입니다."),
-    PLACE_NAME_REQUIRED(HttpStatus.BAD_REQUEST, "P109", "장소 이름은 필수입니다.");
+    PLACE_NAME_REQUIRED(HttpStatus.BAD_REQUEST, "P109", "장소 이름은 필수입니다."),
+
+    // deletePlace validation
+    NOT_PLACE_OWNER(HttpStatus.FORBIDDEN, "P110", "장소는 팀짱만 삭제할 수 있습니다.");
 
     private final HttpStatus status;
     private final String code;
