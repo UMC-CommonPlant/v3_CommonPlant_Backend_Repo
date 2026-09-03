@@ -209,6 +209,7 @@ public class GarageImageService implements S3Service {
                     RequestBody.fromInputStream(inputStream, imageFile.getSize())
             );
         } catch (IOException | SdkException e) {
+            log.debug(e.toString());
             throw new BusinessException(S3ErrorCode.IMAGE_UPLOAD_FAILED);
         }
     }
