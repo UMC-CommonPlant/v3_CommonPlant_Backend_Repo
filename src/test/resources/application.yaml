@@ -30,16 +30,21 @@ social:
   kakao:
     user-info-url: https://kapi.kakao.com/v2/user/me
 
-#s3:
-#  bucket: ${S3_BUCKET_NAME}
-#  presigned-url-expiration-minutes: 10
-#  image:
-#    max-upload-count: 5
-#    max-size-bytes: 10485760
-#    allowed-content-types:
-#      - image/jpeg
-#      - image/png
-#      - image/webp
+garage:
+  endpoint: http://localhost:3900
+  region: garage
+  access-key: test-access-key
+  secret-key: test-secret-key
+  bucket-name: test-bucket
+  path-style-access-enabled: true
+  public-base-url: http://localhost:3902
+  image:
+    max-upload-count: 5
+    max-size-bytes: 10485760
+    allowed-content-types:
+      - image/jpeg
+      - image/png
+      - image/webp
 
 springdoc:
   packages-to-scan: com.commonplant.garden

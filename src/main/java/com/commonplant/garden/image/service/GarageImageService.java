@@ -1,66 +1,62 @@
-package com.commonplant.garden.s3.service;
+package com.commonplant.garden.image.service;
 
-import com.commonplant.garden.common.config.S3Properties;
+import com.commonplant.garden.common.config.GarageProperties;
 import com.commonplant.garden.common.exception.BusinessException;
 import com.commonplant.garden.common.util.IdUtil;
 import com.commonplant.garden.s3.dto.S3Response;
 import com.commonplant.garden.s3.entity.Image;
 import com.commonplant.garden.s3.entity.ImageRepository;
 import com.commonplant.garden.s3.exception.S3ErrorCode;
+import com.commonplant.garden.s3.service.ImagePath;
+import com.commonplant.garden.s3.service.S3Service;
 import com.commonplant.garden.user.entity.User;
 import com.commonplant.garden.user.entity.UserRepository;
 import com.commonplant.garden.user.enums.UserStatus;
 import com.commonplant.garden.user.exception.UserErrorCode;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 import software.amazon.awssdk.core.exception.SdkException;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
-import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
-import software.amazon.awssdk.services.s3.presigner.S3Presigner;
-import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.time.Duration;
-import java.time.Instant;
 import java.util.List;
 import java.util.Locale;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
-public class S3ServiceImpl implements S3Service {
+public class GarageImageService implements S3Service {
 
-    private static final String IMAGE_KEY_PREFIX = "images";
     private static final int MAX_EXTENSION_LENGTH = 10;
+    private static final String PUBLIC_CACHE_CONTROL = "public, max-age=31536000, immutable";
 
-    private final S3Client s3Client;
-    private final S3Presigner s3Presigner;
-    private final S3Properties s3Properties;
+    private final S3Client garageClient;
+    private final GarageProperties garageProperties;
     private final ImageRepository imageRepository;
     private final UserRepository userRepository;
 
     @Override
     public String getImageUrl(String key) {
         Image image = findImageByKey(key);
-        Duration expiresIn = Duration.ofMinutes(s3Properties.presignedUrlExpirationMinutes());
-        return createPresignedGetUrl(image.getImageKey(), expiresIn);
+        return createPublicUrl(image.getImageKey());
     }
 
     @Override
     public S3Response.ImageInfo getImage(String nanoId, String key) {
         findActiveUser(nanoId);
         Image image = findImageByKey(key);
-        Duration expiresIn = Duration.ofMinutes(s3Properties.presignedUrlExpirationMinutes());
-        Instant expiresAt = Instant.now().plus(expiresIn);
-
-        return S3Response.ImageInfo.of(image, getImageUrl(image.getImageKey()), expiresAt);
+        return S3Response.ImageInfo.of(image, createPublicUrl(image.getImageKey()));
     }
 
     @Override
@@ -68,23 +64,35 @@ public class S3ServiceImpl implements S3Service {
     public void deleteImage(String nanoId, String key) {
         findActiveUser(nanoId);
         Image image = findImageByKey(key);
-        deleteObject(image.getImageKey());
         imageRepository.delete(image);
+        deleteObjectAfterCommit(image.getImageKey());
     }
 
     @Override
     @Transactional
     public S3Response.ImageInfo updateImage(String nanoId, String key, MultipartFile imageFile) {
+        return updateImage(nanoId, key, ImagePath.fromImageKey(key), imageFile);
+    }
+
+    @Override
+    @Transactional
+    public S3Response.ImageInfo updateImage(
+            String nanoId,
+            String key,
+            ImagePath imagePath,
+            MultipartFile imageFile
+    ) {
         findActiveUser(nanoId);
         Image image = findImageByKey(key);
         validateMultipartImage(imageFile);
 
         String oldImageKey = image.getImageKey();
-        String newImageKey = createImageKey(nanoId, imageFile.getOriginalFilename());
+        String newImageKey = createImageKey(imagePath, imageFile.getOriginalFilename());
         putImageObject(newImageKey, imageFile);
+        deleteObjectOnRollback(newImageKey);
 
         image.update(newImageKey, normalizeContentType(imageFile.getContentType()), imageFile.getSize());
-        deleteObject(oldImageKey);
+        deleteObjectAfterCommit(oldImageKey);
 
         return S3Response.ImageInfo.from(image);
     }
@@ -92,11 +100,21 @@ public class S3ServiceImpl implements S3Service {
     @Override
     @Transactional
     public S3Response.CompletedImages uploadImages(String nanoId, List<MultipartFile> imageFiles) {
+        return uploadImages(nanoId, ImagePath.legacy(nanoId), imageFiles);
+    }
+
+    @Override
+    @Transactional
+    public S3Response.CompletedImages uploadImages(
+            String nanoId,
+            ImagePath imagePath,
+            List<MultipartFile> imageFiles
+    ) {
         User user = findActiveUser(nanoId);
         validateImageCount(imageFiles == null ? 0 : imageFiles.size());
 
         List<Image> images = imageFiles.stream()
-                .map(imageFile -> uploadImage(user, imageFile))
+                .map(imageFile -> uploadImage(user, imagePath, imageFile))
                 .toList();
 
         return S3Response.CompletedImages.builder()
@@ -109,15 +127,26 @@ public class S3ServiceImpl implements S3Service {
     @Override
     @Transactional
     public S3Response.ImageInfo uploadImage(String nanoId, MultipartFile imageFile) {
-        User user = findActiveUser(nanoId);
-        return S3Response.ImageInfo.from(uploadImage(user, imageFile));
+        return uploadImage(nanoId, ImagePath.legacy(nanoId), imageFile);
     }
 
-    private Image uploadImage(User user, MultipartFile imageFile) {
+    @Override
+    @Transactional
+    public S3Response.ImageInfo uploadImage(
+            String nanoId,
+            ImagePath imagePath,
+            MultipartFile imageFile
+    ) {
+        User user = findActiveUser(nanoId);
+        return S3Response.ImageInfo.from(uploadImage(user, imagePath, imageFile));
+    }
+
+    private Image uploadImage(User user, ImagePath imagePath, MultipartFile imageFile) {
         validateMultipartImage(imageFile);
 
-        String imageKey = createImageKey(user.getNanoId(), imageFile.getOriginalFilename());
+        String imageKey = createImageKey(imagePath, imageFile.getOriginalFilename());
         putImageObject(imageKey, imageFile);
+        deleteObjectOnRollback(imageKey);
 
         return imageRepository.save(Image.builder()
                 .user(user)
@@ -138,7 +167,7 @@ public class S3ServiceImpl implements S3Service {
     }
 
     private void validateImageCount(int imageCount) {
-        if (imageCount < 1 || imageCount > s3Properties.image().maxUploadCount()) {
+        if (imageCount < 1 || imageCount > garageProperties.image().maxUploadCount()) {
             throw new BusinessException(S3ErrorCode.TOO_MANY_IMAGES);
         }
     }
@@ -149,44 +178,33 @@ public class S3ServiceImpl implements S3Service {
         }
 
         validateImageContentType(imageFile.getContentType());
-        if (imageFile.getSize() > s3Properties.image().maxSizeBytes()) {
+        if (imageFile.getSize() > garageProperties.image().maxSizeBytes()) {
             throw new BusinessException(S3ErrorCode.INVALID_IMAGE_SIZE);
         }
     }
 
     private void validateImageContentType(String contentType) {
         String normalizedContentType = normalizeContentType(contentType);
-        if (!s3Properties.image().allowedContentTypes().contains(normalizedContentType)) {
+        if (!garageProperties.image().allowedContentTypes().contains(normalizedContentType)) {
             throw new BusinessException(S3ErrorCode.INVALID_IMAGE_CONTENT_TYPE);
         }
     }
 
-    private String createPresignedGetUrl(String imageKey, Duration expiresIn) {
-        GetObjectRequest getObjectRequest = GetObjectRequest.builder()
-                .bucket(s3Properties.bucket())
-                .key(imageKey)
-                .build();
-
-        GetObjectPresignRequest presignRequest = GetObjectPresignRequest.builder()
-                .signatureDuration(expiresIn)
-                .getObjectRequest(getObjectRequest)
-                .build();
-
-        return s3Presigner.presignGetObject(presignRequest)
-                .url()
-                .toString();
+    private String createPublicUrl(String imageKey) {
+        return garageProperties.publicBaseUrl() + "/" + imageKey;
     }
 
     private void putImageObject(String imageKey, MultipartFile imageFile) {
         PutObjectRequest putObjectRequest = PutObjectRequest.builder()
-                .bucket(s3Properties.bucket())
+                .bucket(garageProperties.bucketName())
                 .key(imageKey)
                 .contentType(normalizeContentType(imageFile.getContentType()))
                 .contentLength(imageFile.getSize())
+                .cacheControl(PUBLIC_CACHE_CONTROL)
                 .build();
 
         try (InputStream inputStream = imageFile.getInputStream()) {
-            s3Client.putObject(
+            garageClient.putObject(
                     putObjectRequest,
                     RequestBody.fromInputStream(inputStream, imageFile.getSize())
             );
@@ -196,14 +214,55 @@ public class S3ServiceImpl implements S3Service {
     }
 
     private void deleteObject(String imageKey) {
-        s3Client.deleteObject(DeleteObjectRequest.builder()
-                .bucket(s3Properties.bucket())
-                .key(imageKey)
-                .build());
+        try {
+            garageClient.deleteObject(DeleteObjectRequest.builder()
+                    .bucket(garageProperties.bucketName())
+                    .key(imageKey)
+                    .build());
+        } catch (SdkException e) {
+            throw new BusinessException(S3ErrorCode.IMAGE_DELETE_FAILED);
+        }
     }
 
-    private String createImageKey(String nanoId, String fileName) {
-        return IMAGE_KEY_PREFIX + "/" + nanoId + "/" + IdUtil.generateUuid() + extractExtension(fileName);
+    private void deleteObjectAfterCommit(String imageKey) {
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            deleteObject(imageKey);
+            return;
+        }
+
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                deleteObjectQuietly(imageKey, "committed object replacement");
+            }
+        });
+    }
+
+    private void deleteObjectOnRollback(String imageKey) {
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            return;
+        }
+
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCompletion(int status) {
+                if (status != STATUS_COMMITTED) {
+                    deleteObjectQuietly(imageKey, "rolled-back object upload");
+                }
+            }
+        });
+    }
+
+    private void deleteObjectQuietly(String imageKey, String operation) {
+        try {
+            deleteObject(imageKey);
+        } catch (BusinessException e) {
+            log.error("Failed to clean up Garage image after {}: key={}", operation, imageKey, e);
+        }
+    }
+
+    private String createImageKey(ImagePath imagePath, String fileName) {
+        return imagePath.directory() + "/" + IdUtil.generateUuid() + extractExtension(fileName);
     }
 
     private String extractExtension(String fileName) {
