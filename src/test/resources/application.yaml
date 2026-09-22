@@ -20,9 +20,10 @@ server:
 
 jwt:
   secret: DO-NOT-USE-IN-PRODUCTION-test-only-jwt-secret-key-0123456789
-  access-token-expiry: 3600000      # 1시간 (ms)
-  refresh-token-expiry: 2592000000  # 30일 (ms)
-  signup-token-expiry: 600000       # 10분 (ms)
+  access-token-expiry: 1h
+  refresh-token-expiry: 7d
+  refresh-token-renewal-threshold: 1d # 만료 1일 전부터 갱신
+  signup-token-expiry: 10m
 
 social:
   google:

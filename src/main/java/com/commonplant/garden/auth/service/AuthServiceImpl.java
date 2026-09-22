@@ -25,6 +25,7 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
+import java.util.Objects;
 
 @Slf4j
 @Service
@@ -125,6 +126,33 @@ public class AuthServiceImpl implements AuthService {
                 .isNewUser(true)
                 .accessToken(accessToken)
                 .refreshToken(refreshToken)
+                .build();
+    }
+
+    /**
+     * Refresh Token 검증 후 Access Token 재발급.
+     * Refresh Token의 만료가 임박한 경우에만 함께 교체한다.
+     */
+    @Override
+    @Transactional
+    public AuthResponse.RefreshResponse refresh(AuthRequest.Refresh request) {
+        JwtUtil.RefreshTokenInfo tokenInfo = jwtUtil.getRefreshTokenInfo(request.getRefreshToken());
+        User user = userRepository.findByNanoIdAndStatus(tokenInfo.nanoId(), UserStatus.ACTIVE)
+                .orElseThrow(() -> new BusinessException(AuthErrorCode.USER_NOT_FOUND));
+
+        if (!Objects.equals(user.getRefreshToken(), request.getRefreshToken())) {
+            throw new BusinessException(AuthErrorCode.INVALID_REFRESH_TOKEN);
+        }
+
+        String newRefreshToken = null;
+        if (jwtUtil.isRefreshTokenRenewalRequired(tokenInfo)) {
+            newRefreshToken = jwtUtil.generateRefreshToken(user.getNanoId());
+            user.updateRefreshToken(newRefreshToken);
+        }
+
+        return AuthResponse.RefreshResponse.builder()
+                .accessToken(jwtUtil.generateAccessToken(user.getNanoId()))
+                .refreshToken(newRefreshToken)
                 .build();
     }
 
