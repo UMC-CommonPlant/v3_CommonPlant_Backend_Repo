@@ -34,6 +34,13 @@ public class AuthResponse {
     }
 
     @Getter
+    @Schema(description = "토큰 갱신 성공 응답")
+    public static class RefreshJsonResponse extends SuccessJsonResponse {
+        @Schema(description = "응답 데이터")
+        private RefreshResponse result;
+    }
+
+    @Getter
     public static class SuccessJsonResponse {
         @Schema(description = "응답 시간", example = "2026-05-12 19:30:00")
         private String timeStamp;
@@ -95,6 +102,19 @@ public class AuthResponse {
         private String accessToken;
 
         @Schema(description = "리프레시 토큰", example = "eyJhbGciOiJIUzI1NiJ9...")
+        private String refreshToken;
+    }
+
+    @Getter
+    @Builder
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    @Schema(description = "토큰 갱신 응답")
+    public static class RefreshResponse {
+        @Schema(description = "새 Access Token", example = "eyJhbGciOiJIUzI1NiJ9...")
+        private String accessToken;
+
+        @Schema(description = "만료 임박 시에만 새로 발급되는 Refresh Token",
+                example = "eyJhbGciOiJIUzI1NiJ9...", nullable = true)
         private String refreshToken;
     }
 

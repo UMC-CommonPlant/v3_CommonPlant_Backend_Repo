@@ -13,6 +13,7 @@ import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.Date;
 import java.util.Map;
 
@@ -22,37 +23,43 @@ public class JwtUtil {
 
     private static final String CLAIM_TYPE     = "type";
     private static final String TYPE_SIGNUP    = "SIGNUP";
+    private static final String TYPE_ACCESS    = "ACCESS";
+    private static final String TYPE_REFRESH   = "REFRESH";
     private static final String CLAIM_PROVIDER = "provider";
     private static final String CLAIM_EMAIL    = "email";
 
     /** signupToken 파싱 결과를 담는 record */
     public record SignupTokenInfo(String providerId, String provider, String email) {}
+    public record RefreshTokenInfo(String nanoId, Date expiresAt) {}
 
     private final SecretKey secretKey;
     private final long accessTokenExpiry;
     private final long refreshTokenExpiry;
     private final long signupTokenExpiry;
+    private final long refreshTokenRenewalThreshold;
 
     public JwtUtil(
             @Value("${jwt.secret}")                String secret,
-            @Value("${jwt.access-token-expiry}")   long accessTokenExpiry,
-            @Value("${jwt.refresh-token-expiry}")  long refreshTokenExpiry,
-            @Value("${jwt.signup-token-expiry}")   long signupTokenExpiry
+            @Value("${jwt.access-token-expiry}")   Duration accessTokenExpiry,
+            @Value("${jwt.refresh-token-expiry}")  Duration refreshTokenExpiry,
+            @Value("${jwt.signup-token-expiry}")   Duration signupTokenExpiry,
+            @Value("${jwt.refresh-token-renewal-threshold}") Duration refreshTokenRenewalThreshold
     ) {
         this.secretKey         = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
-        this.accessTokenExpiry  = accessTokenExpiry;
-        this.refreshTokenExpiry = refreshTokenExpiry;
-        this.signupTokenExpiry  = signupTokenExpiry;
+        this.accessTokenExpiry  = accessTokenExpiry.toMillis();
+        this.refreshTokenExpiry = refreshTokenExpiry.toMillis();
+        this.signupTokenExpiry  = signupTokenExpiry.toMillis();
+        this.refreshTokenRenewalThreshold = refreshTokenRenewalThreshold.toMillis();
     }
 
     // ── 토큰 생성 ────────────────────────────────────────────────────
 
     public String generateAccessToken(String nanoId) {
-        return buildToken(nanoId, accessTokenExpiry);
+        return buildToken(nanoId, accessTokenExpiry, Map.of(CLAIM_TYPE, TYPE_ACCESS));
     }
 
     public String generateRefreshToken(String nanoId) {
-        return buildToken(nanoId, refreshTokenExpiry);
+        return buildToken(nanoId, refreshTokenExpiry, Map.of(CLAIM_TYPE, TYPE_REFRESH));
     }
 
     /** 회원가입 전용 단기 토큰 — providerId를 subject로, type=SIGNUP claim 포함 */
@@ -72,10 +79,22 @@ public class JwtUtil {
      */
     public String getNanoId(String token) {
         Claims claims = validateAndGetClaims(token);
-        if (TYPE_SIGNUP.equals(claims.get(CLAIM_TYPE, String.class))) {
+        if (!TYPE_ACCESS.equals(claims.get(CLAIM_TYPE, String.class))) {
             throw new BusinessException(AuthErrorCode.INVALID_JWT_TOKEN);
         }
         return claims.getSubject();
+    }
+
+    public RefreshTokenInfo getRefreshTokenInfo(String refreshToken) {
+        Claims claims = validateAndGetClaims(refreshToken);
+        if (!TYPE_REFRESH.equals(claims.get(CLAIM_TYPE, String.class))) {
+            throw new BusinessException(AuthErrorCode.INVALID_REFRESH_TOKEN);
+        }
+        return new RefreshTokenInfo(claims.getSubject(), claims.getExpiration());
+    }
+
+    public boolean isRefreshTokenRenewalRequired(RefreshTokenInfo tokenInfo) {
+        return tokenInfo.expiresAt().getTime() - System.currentTimeMillis() <= refreshTokenRenewalThreshold;
     }
 
     /**
