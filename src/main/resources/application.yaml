@@ -8,9 +8,9 @@ server:
 
 jwt:
   secret: ${JWT_SECRET}             # 256-bit 이상 랜덤 문자열 (환경변수)
-  access-token-expiry: 1h
-  refresh-token-expiry: 7d
-  refresh-token-renewal-threshold: 1d # 만료 1일 전부터 갱신
+  access-token-expiry: 6h
+  refresh-token-expiry: 30d
+  refresh-token-renewal-threshold: 3d # 만료 3일 전부터 갱신
   signup-token-expiry: 10m
 
 social:
