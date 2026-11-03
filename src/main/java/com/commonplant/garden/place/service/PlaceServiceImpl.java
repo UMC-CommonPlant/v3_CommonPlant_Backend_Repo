@@ -119,7 +119,7 @@ public class PlaceServiceImpl implements PlaceService {
         belongUserOnPlace(user.getNanoId(), code);
 
         // 장소 존재 여부 확인
-        getPlaceByCode(code);
+        Place place = getPlaceByCode(code);
 
         List<User> users = belongRepository
                 .getUserListByPlaceCodeOrderByCreatedAt(code)
@@ -127,9 +127,10 @@ public class PlaceServiceImpl implements PlaceService {
 
         return users.stream()
                 .map(member -> new PlaceDto.getPlaceResUser(
+                        member.getNanoId(),               // 권한 변경 대상 지정용
                         member.getName(),
-                        resolveImageUrl(member.getImgUrl())
-                ))
+                        resolveImageUrl(member.getImgUrl()),
+                        isOwner(member, place)))          // 팀짱 여부
                 .collect(Collectors.toList());
     }
 
@@ -210,6 +211,54 @@ public class PlaceServiceImpl implements PlaceService {
         deletePlaceWithRelations(place);
     }
 
+    @Override
+    @Transactional
+    public void leavePlace(String nanoId, String code) {
+        User user = userService.findActiveUserByNanoId(nanoId);
+        Place place = getPlaceByCode(code);
+
+        Belong myBelong = belongRepository.getBelongByUserAndPlace(user.getNanoId(), code)
+                .orElseThrow(() -> new BusinessException(PlaceErrorCode.USER_NOT_ON_PLACE));
+
+        // 팀원: 그냥 탈퇴
+        if (!isOwner(user, place)) {
+            belongRepository.delete(myBelong);
+            return;
+        }
+
+        // 팀짱: 등록 순서상 가장 먼저 가입한 "다른" 멤버에게 위임
+        Optional<Belong> nextOwner = belongRepository.findAllByPlaceCodeOrderByCreatedAt(code).stream()
+                .filter(b -> !b.getUser().getUserIdx().equals(user.getUserIdx()))
+                .findFirst();
+
+        // 아무도 안 남으면 장소 완전 삭제
+        if (nextOwner.isEmpty()) {
+            deletePlaceWithRelations(place);
+            return;
+        }
+
+        changeOwnerOfPlace(place, nextOwner.get().getUser());
+        belongRepository.delete(myBelong);
+    }
+
+    @Override
+    @Transactional
+    public void changePlaceOwner(String nanoId, String code, String targetNanoId) {
+        User user = userService.findActiveUserByNanoId(nanoId);
+        Place place = getPlaceByCode(code);
+
+        validateOwner(user, place);
+
+        if (user.getNanoId().equals(targetNanoId)) {
+            throw new BusinessException(PlaceErrorCode.CANNOT_CHANGE_OWNER_TO_SELF);
+        }
+
+        Belong target = belongRepository.getBelongByUserAndPlace(targetNanoId, code)
+                .orElseThrow(() -> new BusinessException(PlaceErrorCode.USER_NOT_ON_PLACE));
+
+        changeOwnerOfPlace(place, target.getUser());
+    }
+
     // Helper Methods
     /*
         팀짱 여부 검증
@@ -218,6 +267,14 @@ public class PlaceServiceImpl implements PlaceService {
         if (!place.getOwner().getUserIdx().equals(user.getUserIdx())) {
             throw new BusinessException(PlaceErrorCode.NOT_PLACE_OWNER);
         }
+    }
+
+    private void changeOwnerOfPlace(Place place, User newOwner) {
+        place.changeOwner(newOwner); // 영속 상태라 dirty checking으로 반영
+    }
+
+    private boolean isOwner(User user, Place place) {
+        return place.getOwner().getUserIdx().equals(user.getUserIdx());
     }
 
     /*

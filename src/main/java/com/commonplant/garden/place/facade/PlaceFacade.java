@@ -34,12 +34,7 @@ public class PlaceFacade {
         placeService.belongUserOnPlace(user.getNanoId(), code);
         Place place = placeService.getPlaceByCode(code);
 
-        List<PlaceDto.getPlaceResUser> userList =
-                belongRepository.getUserListByPlaceCode(code)
-                        .orElseThrow(() -> new BusinessException(PlaceErrorCode.PLACE_NOT_FOUND))
-                        .stream()
-                        .map(u -> new PlaceDto.getPlaceResUser(u.getName(), u.getImgUrl()))
-                        .toList();
+        List<PlaceDto.getPlaceResUser> userList = placeService.getPlaceMembers(nanoId, code);
 
         List<Long> plantIds = plantService.getPlantIdsByPlace(nanoId, code);
 
@@ -58,6 +53,16 @@ public class PlaceFacade {
                 .userList(userList)
                 .plantList(plantList)
                 .build();
+    }
+
+    public PlaceDto.getMainPage getMyGarden(String nanoId, int page, int size) {
+        User user = userService.findActiveUserByNanoId(nanoId);
+
+        List<PlaceDto.getPlaceListRes> placeList = placeService.getPlaceList(nanoId);
+        PlantResponse.PlantPageContent plantList =
+                plantService.getPlants(nanoId, page, size).getContent();
+
+        return new PlaceDto.getMainPage(user.getName(), placeList, plantList);
     }
 
     private String resolveImageUrl(String imageKey) {

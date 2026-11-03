@@ -56,4 +56,8 @@ public class Place extends BaseTime {
     public void setPlaceIdx(Long placeIdx) {
         this.placeIdx = placeIdx;
     }
+
+    public void changeOwner(User newOwner) {
+        this.owner = newOwner;
+    }
 }

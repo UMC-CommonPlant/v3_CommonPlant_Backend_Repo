@@ -38,4 +38,7 @@ public interface BelongRepository extends JpaRepository<Belong, Long> {
 
     @Query("select b from Belong b where b.place.code = ?1")
     List<Belong> findAllByPlaceCode(String code);
+
+    @Query("select b from Belong b where b.place.code = ?1 order by b.createdAt asc, b.belongIdx asc")
+    List<Belong> findAllByPlaceCodeOrderByCreatedAt(String code);
 }
