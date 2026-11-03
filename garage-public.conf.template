@@ -1,0 +1,12 @@
+server {
+    listen 80;
+    server_name _;
+
+    location / {
+        proxy_set_header Host ${GARAGE_BUCKET_NAME};
+        proxy_pass http://garage:3902;
+
+        add_header Access-Control-Allow-Origin "*" always;
+        add_header Access-Control-Allow-Methods "GET, HEAD" always;
+    }
+}

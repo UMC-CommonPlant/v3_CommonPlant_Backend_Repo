@@ -7,4 +7,5 @@ import org.springframework.web.multipart.MultipartFile;
 public interface AuthService {
     Object login(AuthRequest.Login request);
     AuthResponse.RegisterResponse register(AuthRequest.RegisterRequest request, MultipartFile image);
+    AuthResponse.RefreshResponse refresh(AuthRequest.Refresh request);
 }

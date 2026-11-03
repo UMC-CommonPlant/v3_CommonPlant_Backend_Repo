@@ -47,6 +47,18 @@ public class AuthRequest {
     @Getter
     @NoArgsConstructor
     @AllArgsConstructor
+    @Schema(description = "토큰 갱신 요청")
+    public static class Refresh {
+        @NotBlank
+        @Size(max = TOKEN_MIM_LENGTH, message = "refreshToken은 512자를 초과할 수 없습니다.")
+        @Schema(description = "로그인 또는 회원가입 시 발급받은 Refresh Token",
+                example = "eyJhbGciOiJIUzI1NiJ9...", requiredMode = Schema.RequiredMode.REQUIRED)
+        private String refreshToken;
+    }
+
+    @Getter
+    @NoArgsConstructor
+    @AllArgsConstructor
     @Schema(description = "회원가입 요청")
     public static class RegisterRequest {
         /** login 응답으로 받은 signupToken */
