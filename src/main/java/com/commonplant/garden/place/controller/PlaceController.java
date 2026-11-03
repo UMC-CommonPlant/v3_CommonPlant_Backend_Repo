@@ -286,7 +286,19 @@ public class PlaceController {
                                             "member": "2",
                                             "plant": "0"
                                           }
-                                        ]
+                                        ],
+                                        "plantList": {
+                                          "items": [
+                                            {
+                                              "plantId": 1,
+                                              "nickname": "거실 몬스테라",
+                                              "representativeImageUrl": "https://bucket.s3.ap-northeast-2.amazonaws.com/images/user-nano-id/monstera.png?X-Amz-Algorithm=..."
+                                            }
+                                          ],
+                                          "totalCount": 1,
+                                          "page": 0,
+                                          "size": 20
+                                        }
                                       },
                                       "success": true
                                     }
@@ -294,13 +306,16 @@ public class PlaceController {
     })
     @GetMapping("/myGarden")
     public ResponseEntity<JsonResponse> getMyGarden(
-            @Parameter(hidden = true) @AuthenticationPrincipal String nanoId) {
+            @Parameter(hidden = true) @AuthenticationPrincipal String nanoId,
+            @Parameter(description = "식물 목록 페이지 번호(0부터 시작)", example = "0")
+            @RequestParam(defaultValue = "0") int page,
+            @Parameter(description = "식물 목록 페이지 크기", example = "20")
+            @RequestParam(defaultValue = "20") int size) {
 
         log.info("[API] getMyGarden");
         UserResponse response = userService.getUserByNanoId(nanoId);
 
-        List<PlaceDto.getPlaceListRes> placeList = placeService.getPlaceList(response.getId());
-        PlaceDto.getMainPage mainPage = new PlaceDto.getMainPage(response.getName(), placeList);
+        PlaceDto.getMainPage mainPage = placeFacade.getMyGarden(response.getId(), page, size);
         return ResponseEntity.ok(new JsonResponse(true, 200, "getMyGarden", mainPage));
     }
 
@@ -509,5 +524,63 @@ public class PlaceController {
 
         placeService.deletePlace(nanoId, code);
         return ResponseEntity.ok(new JsonResponse(true, 200, "deletePlace", null));
+    }
+
+    @Operation(summary = "장소 탈퇴",
+            description = "장소에서 탈퇴합니다. 팀짱이 탈퇴하면 가입 순서대로 다음 멤버에게 팀짱이 위임되고, 남은 멤버가 없으면 장소가 삭제됩니다.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "장소 탈퇴 성공",
+                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            examples = @ExampleObject(value = """
+                                {
+                                  "timeStamp": "2026-11-03 16:54:00",
+                                  "status": 200,
+                                  "message": "leavePlace",
+                                  "result": null,
+                                  "success": true
+                                }
+                                """))),
+            @ApiResponse(responseCode = "403", description = "장소 접근 권한 없음 (멤버가 아님)"),
+            @ApiResponse(responseCode = "404", description = "장소 없음")
+    })
+    @DeleteMapping("/leave/{code}")
+    public ResponseEntity<JsonResponse> leavePlace(
+            @Parameter(hidden = true) @AuthenticationPrincipal String nanoId,
+            @Parameter(description = "장소 코드", example = "ABCabc") @PathVariable String code) {
+
+        log.info("[API] leavePlace");
+        UserResponse response = userService.getUserByNanoId(nanoId);
+
+        placeService.leavePlace(response.getId(), code);
+        return ResponseEntity.ok(new JsonResponse(true, 200, "leavePlace", null));
+    }
+
+    @Operation(summary = "장소 팀짱 변경", description = "팀짱이 다른 멤버에게 팀짱 권한을 넘깁니다.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "팀짱 변경 성공",
+                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            examples = @ExampleObject(value = """
+                                {
+                                  "timeStamp": "2026-11-03 16:54:00",
+                                  "status": 200,
+                                  "message": "changePlaceOwner",
+                                  "result": null,
+                                  "success": true
+                                }
+                                """))),
+            @ApiResponse(responseCode = "403", description = "팀짱이 아니거나 대상이 장소 멤버가 아님"),
+            @ApiResponse(responseCode = "404", description = "장소 없음")
+    })
+    @PutMapping("/{code}/owner/{targetNanoId}")
+    public ResponseEntity<JsonResponse> changePlaceOwner(
+            @Parameter(hidden = true) @AuthenticationPrincipal String nanoId,
+            @Parameter(description = "장소 코드", example = "ABCabc") @PathVariable String code,
+            @Parameter(description = "새 팀짱의 nanoId") @PathVariable String targetNanoId) {
+
+        log.info("[API] changePlaceOwner");
+        UserResponse response = userService.getUserByNanoId(nanoId);
+
+        placeService.changePlaceOwner(response.getId(), code, targetNanoId);
+        return ResponseEntity.ok(new JsonResponse(true, 200, "changePlaceOwner", null));
     }
 }
