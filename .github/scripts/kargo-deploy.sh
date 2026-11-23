@@ -7,6 +7,9 @@
 # 필요한 환경변수: KARGO_API_ADDRESS, KARGO_API_TOKEN, KARGO_PROJECT
 # 두 KARGO_API_* 변수가 모두 있으면 kargo CLI는 login 없이 그 token을 쓴다.
 set -Eeuo pipefail
+# $(...) 안의 명령이 실패해도 스크립트를 멈춘다. 없으면 권한·연결 오류를
+# "Freight가 아직 없다"로 보고 timeout까지 기다린다.
+shopt -s inherit_errexit
 
 MODE="${1:?mode(wait|promote)가 필요합니다}"
 STAGE="${2:?stage가 필요합니다}"
