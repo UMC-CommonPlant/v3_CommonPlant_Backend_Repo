@@ -303,5 +303,12 @@ jobs:
         with:
           sha256: ${{ vars.KARGO_CLI_SHA256 }}
 
+      # Warehouse는 5분마다 GHCR을 조회한다. 빌드 직후 바로 조회시켜 Freight 생성을 앞당긴다.
+      # 실패해도 5분 주기 조회로 배포는 진행되므로 경고만 남긴다.
+      - name: Refresh Kargo Warehouse
+        run: |
+          kargo refresh warehouse --project "${KARGO_PROJECT}" api-common \
+            || echo "::warning::Warehouse refresh에 실패했습니다. 5분 주기 조회를 기다립니다."
+
       - name: Wait for dev promotion
         run: ./.github/scripts/kargo-deploy.sh wait dev "${IMAGE_TAG}"
