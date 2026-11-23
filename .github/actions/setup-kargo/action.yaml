@@ -1,0 +1,36 @@
+name: Set up Kargo CLI
+description: homelab Kargo 서버와 같은 버전의 kargo CLI를 설치하고 checksum을 검증한다.
+
+inputs:
+  version:
+    description: Kargo CLI 버전 (서버와 맞춘다)
+    required: false
+    default: v1.11.0
+  sha256:
+    description: kargo-linux-amd64 바이너리의 sha256
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Install kargo CLI
+      shell: bash
+      env:
+        KARGO_VERSION: ${{ inputs.version }}
+        KARGO_SHA256: ${{ inputs.sha256 }}
+      run: |
+        set -Eeuo pipefail
+
+        if [[ ! "${KARGO_SHA256}" =~ ^[0-9a-f]{64}$ ]]; then
+          echo "::error::KARGO_CLI_SHA256 변수가 비어 있거나 형식이 다릅니다."
+          exit 1
+        fi
+
+        BIN_DIR="${RUNNER_TEMP}/kargo-bin"
+        mkdir -p "${BIN_DIR}"
+        curl -fsSL -o "${BIN_DIR}/kargo" \
+          "https://github.com/akuity/kargo/releases/download/${KARGO_VERSION}/kargo-linux-amd64"
+        echo "${KARGO_SHA256}  ${BIN_DIR}/kargo" | sha256sum -c -
+        chmod +x "${BIN_DIR}/kargo"
+        echo "${BIN_DIR}" >> "${GITHUB_PATH}"
+        "${BIN_DIR}/kargo" version --client
