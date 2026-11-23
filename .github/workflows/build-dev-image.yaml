@@ -22,6 +22,8 @@ env:
 jobs:
   build-dev-image:
     name: build-dev-image
+    # 수동 실행도 develop에서만 허용한다. 다른 브랜치의 sha 이미지가 올라가면 dev에 자동 배포된다.
+    if: github.ref == 'refs/heads/develop'
     runs-on: ubuntu-latest
 
     steps:
@@ -267,3 +269,39 @@ jobs:
 
           echo "digest=${BUILD_DIGEST}" >> "$GITHUB_OUTPUT"
           echo "digest_ref=${DIGEST_REF}" >> "$GITHUB_OUTPUT"
+
+  # Kargo가 이 커밋의 이미지를 dev에 자동 승격할 때까지 기다리고 결과를 dev Environment에 기록한다.
+  deploy-dev:
+    name: deploy-dev
+    needs: build-dev-image
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+
+    environment:
+      name: dev
+      url: https://commonplant-dev.okbear.dev
+
+    # 새 develop 커밋이 오면 Kargo는 최신 이미지만 승격하므로 이전 대기는 취소한다.
+    concurrency:
+      group: deploy-dev
+      cancel-in-progress: true
+
+    env:
+      KARGO_API_ADDRESS: ${{ vars.KARGO_API_ADDRESS }}
+      KARGO_API_TOKEN: ${{ secrets.KARGO_API_TOKEN }}
+      KARGO_PROJECT: ${{ vars.KARGO_PROJECT }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+
+      - name: Set up Kargo CLI
+        uses: ./.github/actions/setup-kargo
+        with:
+          sha256: ${{ vars.KARGO_CLI_SHA256 }}
+
+      - name: Wait for dev promotion
+        run: ./.github/scripts/kargo-deploy.sh wait dev "${IMAGE_TAG}"
