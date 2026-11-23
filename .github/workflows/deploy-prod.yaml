@@ -1,0 +1,94 @@
+name: Deploy Prod
+
+# develop -> main release PR을 merge commit으로 합치면 prod 배포를 요청한다.
+# 이미지는 다시 빌드하지 않는다. develop에서 빌드해 dev에 배포된 이미지(sha-<develop 커밋>)를
+# Kargo로 prod에 승격하고, 결과를 prod Environment(Deployments)에 기록한다.
+# 수동 실행(workflow_dispatch)은 이전 커밋으로 되돌릴 때 쓴다.
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      commit:
+        description: prod에 올릴 develop 커밋 SHA(40자). 이 커밋의 이미지가 dev에 배포된 적이 있어야 한다.
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+# prod 승격은 한 번에 하나씩, 앞의 요청을 취소하지 않고 순서대로 처리한다.
+concurrency:
+  group: deploy-prod
+  cancel-in-progress: false
+
+jobs:
+  deploy-prod:
+    name: deploy-prod
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    environment:
+      name: prod
+      url: https://commonplant.okbear.dev
+
+    env:
+      KARGO_API_ADDRESS: ${{ vars.KARGO_API_ADDRESS }}
+      KARGO_API_TOKEN: ${{ secrets.KARGO_API_TOKEN }}
+      KARGO_PROJECT: ${{ vars.KARGO_PROJECT }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          # merge commit의 두 번째 부모(develop 쪽)를 읽기 위해 부모까지 받는다.
+          fetch-depth: 2
+
+      # ------------------------------------------------------------
+      # 1. prod에 올릴 develop 커밋 결정
+      # ------------------------------------------------------------
+      - name: Resolve develop commit
+        id: commit
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_COMMIT: ${{ inputs.commit }}
+        run: |
+          set -Eeuo pipefail
+
+          if [[ "${EVENT_NAME}" == "workflow_dispatch" ]]; then
+            COMMIT="${INPUT_COMMIT}"
+          else
+            # main HEAD는 "main 이전 커밋 + develop 커밋"을 부모로 갖는 merge commit이어야 한다.
+            read -r -a PARENTS <<< "$(git rev-list --parents -n 1 HEAD)"
+            if [[ "${#PARENTS[@]}" -ne 3 ]]; then
+              echo "::error::main HEAD가 merge commit이 아닙니다. release PR은 'Create a merge commit'으로 합쳐야 합니다."
+              echo "::error::main에 직접 push했거나 squash/rebase로 합친 커밋은 develop 이미지와 연결되지 않습니다."
+              exit 1
+            fi
+            COMMIT="${PARENTS[2]}"
+          fi
+
+          if [[ ! "${COMMIT}" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::커밋 SHA 형식이 아닙니다: ${COMMIT}"
+            exit 1
+          fi
+
+          echo "Develop commit: ${COMMIT}"
+          echo "image_tag=sha-${COMMIT}" >> "$GITHUB_OUTPUT"
+
+      # ------------------------------------------------------------
+      # 2. Kargo prod 승격
+      # ------------------------------------------------------------
+      - name: Set up Kargo CLI
+        uses: ./.github/actions/setup-kargo
+        with:
+          sha256: ${{ vars.KARGO_CLI_SHA256 }}
+
+      - name: Promote to prod
+        env:
+          IMAGE_TAG: ${{ steps.commit.outputs.image_tag }}
+        run: ./.github/scripts/kargo-deploy.sh promote prod "${IMAGE_TAG}"

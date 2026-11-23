@@ -76,6 +76,53 @@ public interface AuthControllerDocs {
     ResponseEntity<JsonResponse> login(@Valid AuthRequest.Login request);
 
     // ──────────────────────────────────────────────────────────────────────────
+    /* POST /auth/refresh - 토큰 갱신 */
+    @Operation(
+            summary = "토큰 갱신",
+            description = """
+                    Refresh Token으로 새 Access Token을 발급합니다.
+
+                    - 평소에는 `accessToken`만 반환합니다.
+                    - Refresh Token 만료가 1일 이내로 남으면 새 `refreshToken`도 함께 반환합니다.
+                    - Refresh Token의 전체 유효기간은 7일입니다.
+                    """
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "토큰 갱신 성공",
+                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            schema = @Schema(implementation = AuthResponse.RefreshJsonResponse.class),
+                            examples = {
+                                    @ExampleObject(name = "Access Token만 갱신", value = """
+                                            {
+                                              "timeStamp": "2026-09-22 19:30:00",
+                                              "status": 200,
+                                              "message": "refresh",
+                                              "result": {
+                                                "accessToken": "eyJhbGciOiJIUzI1NiJ9..."
+                                              },
+                                              "success": true
+                                            }
+                                            """),
+                                    @ExampleObject(name = "Refresh Token도 갱신", value = """
+                                            {
+                                              "timeStamp": "2026-09-22 19:30:00",
+                                              "status": 200,
+                                              "message": "refresh",
+                                              "result": {
+                                                "accessToken": "eyJhbGciOiJIUzI1NiJ9...",
+                                                "refreshToken": "eyJhbGciOiJIUzI1NiJ9..."
+                                              },
+                                              "success": true
+                                            }
+                                            """)
+                            })),
+            @ApiResponse(responseCode = "401", description = "[A003] 유효하지 않은 JWT | [A004] 만료된 토큰 | [A012] 유효하지 않은 Refresh Token"),
+            @ApiResponse(responseCode = "404", description = "[A006] 사용자를 찾을 수 없음")
+    })
+    @SecurityRequirements
+    ResponseEntity<JsonResponse> refresh(@Valid AuthRequest.Refresh request);
+
+    // ──────────────────────────────────────────────────────────────────────────
     /* POST /auth/register - 회원가입 */
     @Operation(
             summary = "회원가입 완료",

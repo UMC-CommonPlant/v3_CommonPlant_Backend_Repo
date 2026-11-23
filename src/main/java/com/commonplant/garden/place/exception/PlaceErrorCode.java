@@ -22,7 +22,8 @@ public enum PlaceErrorCode implements ErrorCode {
     PLACE_NAME_REQUIRED(HttpStatus.BAD_REQUEST, "P109", "장소 이름은 필수입니다."),
 
     // deletePlace validation
-    NOT_PLACE_OWNER(HttpStatus.FORBIDDEN, "P110", "장소는 팀짱만 삭제할 수 있습니다.");
+    NOT_PLACE_OWNER(HttpStatus.FORBIDDEN, "P110", "장소는 팀짱만 삭제할 수 있습니다."),
+    CANNOT_CHANGE_OWNER_TO_SELF(HttpStatus.FORBIDDEN, "P111", "팀짱 변경 권한이 없습니다.");
 
     private final HttpStatus status;
     private final String code;

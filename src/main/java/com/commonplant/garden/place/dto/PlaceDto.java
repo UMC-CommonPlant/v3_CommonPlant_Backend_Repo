@@ -99,11 +99,17 @@ public class PlaceDto {
     @AllArgsConstructor
     @Schema(description = "장소의 사용자 정보")
     public static class getPlaceResUser {
+        @Schema(description = "사용자 nanoId (팀짱 변경 대상 지정용)", example = "user-nano-id")
+        private String nanoId;
+
         @Schema(description = "사용자 이름", example = "홍길동")
         private String name;
 
         @Schema(description = "사용자 이미지 URL", example = "https://.../user.png")
         private String image;
+
+        @Schema(description = "팀짱 여부", example = "true")
+        private boolean owner;
     }
 
     @Data
@@ -160,7 +166,8 @@ public class PlaceDto {
         @Schema(description = "장소 목록")
         private List<getPlaceListRes> placeList;
 
-        // private List<PlantDto.getPlantListRes> plantList;
+        @Schema(description = "식물 목록 (페이지네이션)")
+        private PlantResponse.PlantPageContent plantList;
     }
 
     @Data

@@ -39,4 +39,11 @@ public class AuthController implements AuthControllerDocs {
         AuthResponse.RegisterResponse response = authService.register(request, image);
         return ResponseEntity.ok(new JsonResponse(true, 200, "register", response));
     }
+
+    @Override
+    @PostMapping("/refresh")
+    public ResponseEntity<JsonResponse> refresh(@Valid @RequestBody AuthRequest.Refresh request) {
+        AuthResponse.RefreshResponse response = authService.refresh(request);
+        return ResponseEntity.ok(new JsonResponse(true, 200, "refresh", response));
+    }
 }
