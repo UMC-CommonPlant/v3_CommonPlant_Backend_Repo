@@ -555,6 +555,32 @@ public class PlaceController {
         return ResponseEntity.ok(new JsonResponse(true, 200, "leavePlace", null));
     }
 
+    @Operation(summary = "전체 장소 탈퇴",
+            description = "참여한 모든 장소에서 탈퇴합니다. 팀짱인 장소는 가입 순서대로 다음 멤버에게 팀짱이 위임되고, 남은 멤버가 없으면 장소가 삭제됩니다.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "전체 장소 탈퇴 성공",
+                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            examples = @ExampleObject(value = """
+                                {
+                                  "timeStamp": "2026-11-24 16:25:00",
+                                  "status": 200,
+                                  "message": "leaveAllPlace",
+                                  "result": null,
+                                  "success": true
+                                }
+                                """)))
+    })
+    @DeleteMapping("/leave")
+    public ResponseEntity<JsonResponse> leaveAllPlace(
+            @Parameter(hidden = true) @AuthenticationPrincipal String nanoId) {
+
+        log.info("[API] leaveAllPlace");
+        UserResponse response = userService.getUserByNanoId(nanoId);
+
+        placeService.leaveAllPlace(response.getId());
+        return ResponseEntity.ok(new JsonResponse(true, 200, "leaveAllPlace", null));
+    }
+
     @Operation(summary = "장소 팀짱 변경", description = "팀짱이 다른 멤버에게 팀짱 권한을 넘깁니다.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "팀짱 변경 성공",
