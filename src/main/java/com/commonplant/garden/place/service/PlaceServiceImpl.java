@@ -220,18 +220,35 @@ public class PlaceServiceImpl implements PlaceService {
         Belong myBelong = belongRepository.getBelongByUserAndPlace(user.getNanoId(), code)
                 .orElseThrow(() -> new BusinessException(PlaceErrorCode.USER_NOT_ON_PLACE));
 
-        // 팀원: 그냥 탈퇴
+        leave(user, place, myBelong);
+    }
+
+    @Override
+    @Transactional
+    public void leaveAllPlace(String nanoId) {
+        User user = userService.findActiveUserByNanoId(nanoId);
+
+        List<Belong> belongs = belongRepository.getPlaceBelongUser(user.getNanoId());
+        for (Belong belong : belongs) {
+            leave(user, belong.getPlace(), belong);
+        }
+    }
+
+    /*
+     * 장소 탈퇴 공통 로직
+     * - 팀원: Belong만 삭제
+     * - 팀짱: 가입 순서상 다음 멤버에게 위임 후 탈퇴, 남은 멤버가 없으면 장소 완전 삭제
+     */
+    private void leave(User user, Place place, Belong myBelong) {
         if (!isOwner(user, place)) {
             belongRepository.delete(myBelong);
             return;
         }
 
-        // 팀짱: 등록 순서상 가장 먼저 가입한 "다른" 멤버에게 위임
-        Optional<Belong> nextOwner = belongRepository.findAllByPlaceCodeOrderByCreatedAt(code).stream()
+        Optional<Belong> nextOwner = belongRepository.findAllByPlaceCodeOrderByCreatedAt(place.getCode()).stream()
                 .filter(b -> !b.getUser().getUserIdx().equals(user.getUserIdx()))
                 .findFirst();
 
-        // 아무도 안 남으면 장소 완전 삭제
         if (nextOwner.isEmpty()) {
             deletePlaceWithRelations(place);
             return;

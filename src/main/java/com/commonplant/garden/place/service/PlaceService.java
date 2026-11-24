@@ -24,6 +24,8 @@ public interface PlaceService {
 
     void leavePlace(String nanoId, String code);
 
+    void leaveAllPlace(String nanoId);
+
     void changePlaceOwner(String nanoId, String code, String targetNanoId);
 
     // helper
