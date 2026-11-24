@@ -245,10 +245,12 @@ public class PlaceServiceImpl implements PlaceService {
             return;
         }
 
+        // 팀짱: 등록 순서상 가장 먼저 가입한 "다른" 멤버에게 위임
         Optional<Belong> nextOwner = belongRepository.findAllByPlaceCodeOrderByCreatedAt(place.getCode()).stream()
                 .filter(b -> !b.getUser().getUserIdx().equals(user.getUserIdx()))
                 .findFirst();
 
+        // 아무도 안 남으면 장소 완전 삭제
         if (nextOwner.isEmpty()) {
             deletePlaceWithRelations(place);
             return;
