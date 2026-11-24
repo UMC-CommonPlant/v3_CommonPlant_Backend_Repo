@@ -44,8 +44,8 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.sha }}
-          # merge commit의 두 번째 부모(develop 쪽)를 읽기 위해 부모까지 받는다.
-          fetch-depth: 2
+          # merge commit의 부모와, 그 커밋이 develop에 있는지 확인할 develop 이력까지 받는다.
+          fetch-depth: 0
 
       # ------------------------------------------------------------
       # 1. prod에 올릴 develop 커밋 결정
@@ -74,6 +74,13 @@ jobs:
 
           if [[ ! "${COMMIT}" =~ ^[0-9a-f]{40}$ ]]; then
             echo "::error::커밋 SHA 형식이 아닙니다: ${COMMIT}"
+            exit 1
+          fi
+
+          # develop 커밋만 prod에 올린다. develop이 아닌 브랜치(hotfix 등)를 main에 merge한 경우를 막는다.
+          if ! git merge-base --is-ancestor "${COMMIT}" origin/develop 2>/dev/null; then
+            echo "::error::${COMMIT}은 develop 브랜치의 커밋이 아닙니다. prod에는 develop -> main release PR만 배포합니다."
+            echo "::error::수정 사항은 develop에 먼저 merge해 dev 배포를 거친 뒤 release PR로 올려야 합니다."
             exit 1
           fi
 
