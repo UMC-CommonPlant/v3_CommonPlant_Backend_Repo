@@ -1,7 +1,13 @@
 name: Set up Kargo CLI
-description: homelab Kargo 서버와 같은 버전의 kargo CLI를 설치하고 checksum을 검증한다.
+description: tailnet에 접속하고, homelab Kargo 서버와 같은 버전의 kargo CLI를 설치해 checksum을 검증한다.
 
 inputs:
+  tailscale-oauth-client-id:
+    description: tag:ci 노드를 만드는 Tailscale OAuth client ID
+    required: true
+  tailscale-oauth-secret:
+    description: Tailscale OAuth client secret
+    required: true
   version:
     description: Kargo CLI 버전 (서버와 맞춘다)
     required: false
@@ -13,6 +19,14 @@ inputs:
 runs:
   using: composite
   steps:
+    # Kargo API는 tailnet에서만 열린다. job 동안만 임시 노드(tag:ci)로 접속한다.
+    - name: Connect to Tailscale
+      uses: tailscale/github-action@064b10558093f38325e838ddea35486bdc6b1d5c # v4.4.0
+      with:
+        oauth-client-id: ${{ inputs.tailscale-oauth-client-id }}
+        oauth-secret: ${{ inputs.tailscale-oauth-secret }}
+        tags: tag:ci
+
     - name: Install kargo CLI
       shell: bash
       env:
